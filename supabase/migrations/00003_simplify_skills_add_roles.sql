@@ -4,6 +4,7 @@
 -- - Remove certification tracking from volunteer_skills
 -- - Add roles table and volunteer_roles junction
 -- - Add role column to volunteer_committees
+-- - Add UPDATE policy for volunteer_committees
 -- ============================================================
 
 -- Simplify skills: drop category
@@ -27,16 +28,17 @@ CREATE TABLE IF NOT EXISTS public.roles (
 
 ALTER TABLE public.roles ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Org members can view roles"
+CREATE POLICY "Users can view roles in their org"
   ON public.roles FOR SELECT
-  USING (org_id IN (SELECT org_id FROM public.profiles WHERE id = auth.uid()));
+  USING (org_id = public.get_user_org_id());
 
-CREATE POLICY "Admins can manage roles"
-  ON public.roles FOR ALL
-  USING (org_id IN (
-    SELECT org_id FROM public.profiles
-    WHERE id = auth.uid() AND role IN ('owner', 'admin')
-  ));
+CREATE POLICY "Users can insert roles in their org"
+  ON public.roles FOR INSERT
+  WITH CHECK (org_id = public.get_user_org_id());
+
+CREATE POLICY "Users can delete roles in their org"
+  ON public.roles FOR DELETE
+  USING (org_id = public.get_user_org_id());
 
 -- Create volunteer_roles junction table
 CREATE TABLE IF NOT EXISTS public.volunteer_roles (
@@ -48,22 +50,39 @@ CREATE TABLE IF NOT EXISTS public.volunteer_roles (
 
 ALTER TABLE public.volunteer_roles ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Org members can view volunteer_roles"
+CREATE POLICY "Users can view volunteer_roles in their org"
   ON public.volunteer_roles FOR SELECT
-  USING (volunteer_id IN (
-    SELECT v.id FROM public.volunteers v
-    JOIN public.profiles p ON p.org_id = v.org_id
-    WHERE p.id = auth.uid()
-  ));
+  USING (
+    volunteer_id IN (
+      SELECT id FROM public.volunteers WHERE org_id = public.get_user_org_id()
+    )
+  );
 
-CREATE POLICY "Editors can manage volunteer_roles"
-  ON public.volunteer_roles FOR ALL
-  USING (volunteer_id IN (
-    SELECT v.id FROM public.volunteers v
-    JOIN public.profiles p ON p.org_id = v.org_id
-    WHERE p.id = auth.uid() AND p.role IN ('owner', 'admin', 'editor')
-  ));
+CREATE POLICY "Users can insert volunteer_roles in their org"
+  ON public.volunteer_roles FOR INSERT
+  WITH CHECK (
+    volunteer_id IN (
+      SELECT id FROM public.volunteers WHERE org_id = public.get_user_org_id()
+    )
+  );
+
+CREATE POLICY "Users can delete volunteer_roles in their org"
+  ON public.volunteer_roles FOR DELETE
+  USING (
+    volunteer_id IN (
+      SELECT id FROM public.volunteers WHERE org_id = public.get_user_org_id()
+    )
+  );
 
 -- Add role column to volunteer_committees (e.g., "Chair", "Member")
 ALTER TABLE public.volunteer_committees
   ADD COLUMN IF NOT EXISTS role text DEFAULT 'Member';
+
+-- Add UPDATE policy for volunteer_committees (missing from initial schema)
+CREATE POLICY "Users can update volunteer_committees in their org"
+  ON public.volunteer_committees FOR UPDATE
+  USING (
+    volunteer_id IN (
+      SELECT id FROM public.volunteers WHERE org_id = public.get_user_org_id()
+    )
+  );

@@ -115,15 +115,25 @@ export default function SettingsPage() {
     if (!orgId || !profile || !orgName.trim()) return;
     setSavingOrg(true);
     setOrgMsg("");
+
+    // Generate new slug from name
+    const baseSlug = orgName
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+    const slug = `${baseSlug}-${Math.random().toString(36).slice(2, 10)}`;
+
     const { error } = await supabase
       .from("organizations")
-      .update({ name: orgName.trim() })
+      .update({ name: orgName.trim(), slug })
       .eq("id", orgId);
 
     if (error) {
       setOrgMsg(error.message);
     } else {
       setOrgMsg("Organization name updated.");
+      setOrg((prev) => (prev ? { ...prev, name: orgName.trim(), slug } : prev));
       await supabase.from("audit_log").insert({
         org_id: orgId,
         user_id: profile.id,

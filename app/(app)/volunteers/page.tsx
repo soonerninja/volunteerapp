@@ -85,18 +85,20 @@ export default function VolunteersPage() {
     let volRoles: { volunteer_id: string; role_id: string }[] = [];
 
     if (volIds.length > 0) {
-      const [skillsRes, rolesRes] = await Promise.all([
-        supabase
-          .from("volunteer_skills")
-          .select("volunteer_id, skill_id")
-          .in("volunteer_id", volIds),
-        supabase
-          .from("volunteer_roles")
-          .select("volunteer_id, role_id")
-          .in("volunteer_id", volIds),
-      ]);
+      const skillsRes = await supabase
+        .from("volunteer_skills")
+        .select("volunteer_id, skill_id")
+        .in("volunteer_id", volIds);
       volSkills = skillsRes.data || [];
-      volRoles = rolesRes.data || [];
+
+      // volunteer_roles table may not exist yet if migration hasn't run
+      const rolesRes = await supabase
+        .from("volunteer_roles")
+        .select("volunteer_id, role_id")
+        .in("volunteer_id", volIds);
+      if (!rolesRes.error) {
+        volRoles = rolesRes.data || [];
+      }
     }
 
     const volunteersWithDetails: VolunteerWithDetails[] = (vols || []).map(
