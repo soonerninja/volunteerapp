@@ -36,13 +36,12 @@ export default function OnboardingPage() {
       return;
     }
 
-    // Create the organization
+    // Create the organization (generate ID client-side to avoid needing SELECT policy)
+    const orgId = crypto.randomUUID();
     const slug = generateSlug(orgName) + "-" + Date.now().toString(36);
-    const { data: org, error: orgError } = await supabase
+    const { error: orgError } = await supabase
       .from("organizations")
-      .insert({ name: orgName.trim(), slug })
-      .select()
-      .single();
+      .insert({ id: orgId, name: orgName.trim(), slug });
 
     if (orgError) {
       setError(orgError.message);
@@ -53,7 +52,7 @@ export default function OnboardingPage() {
     // Link the profile to the org
     const { error: profileError } = await supabase
       .from("profiles")
-      .update({ org_id: org.id, role: "owner" })
+      .update({ org_id: orgId, role: "owner" })
       .eq("id", user.id);
 
     if (profileError) {
