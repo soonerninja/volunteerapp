@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
+import { useOrg } from "@/hooks/use-org";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -37,10 +36,8 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function EventsPage() {
-  const { profile } = useAuth();
+  const { supabase, orgId, profile } = useOrg();
   const router = useRouter();
-  const supabase = createClient();
-  const orgId = profile?.org_id;
 
   const [events, setEvents] = useState<EventWithSignups[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,6 +45,8 @@ export default function EventsPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const firstInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
     title: "",
@@ -88,6 +87,12 @@ export default function EventsPage() {
     fetchEvents();
   }, [fetchEvents]);
 
+  useEffect(() => {
+    if (showCreateForm) {
+      setTimeout(() => firstInputRef.current?.focus(), 50);
+    }
+  }, [showCreateForm]);
+
   const resetForm = () => {
     setForm({
       title: "",
@@ -100,11 +105,38 @@ export default function EventsPage() {
     });
     setShowCreateForm(false);
     setError("");
+    setFieldErrors({});
+  };
+
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+
+    if (!form.title.trim()) errors.title = "Title is required.";
+    if (!form.start_date) errors.start_date = "Start date is required.";
+    if (!form.end_date) errors.end_date = "End date is required.";
+
+    if (form.start_date && form.end_date) {
+      if (new Date(form.end_date) <= new Date(form.start_date)) {
+        errors.end_date = "End date must be after start date.";
+      }
+    }
+
+    if (form.max_volunteers) {
+      const maxVol = parseInt(form.max_volunteers);
+      if (isNaN(maxVol) || maxVol < 1) {
+        errors.max_volunteers = "Must be a positive number.";
+      }
+    }
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!orgId || !profile) return;
+    if (!validateForm()) return;
+
     setSaving(true);
     setError("");
 
@@ -144,7 +176,6 @@ export default function EventsPage() {
 
     setSaving(false);
     resetForm();
-    // Navigate to the new event's detail page
     router.push(`/events/${newEvent.id}`);
   };
 
@@ -153,14 +184,16 @@ export default function EventsPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Events</h1>
         <Button onClick={() => setShowCreateForm(true)}>
-          <Plus className="mr-2 h-4 w-4" />
+          <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
           Create Event
         </Button>
       </div>
 
       {/* Filter */}
       <div className="relative w-48">
+        <label htmlFor="event-status-filter" className="sr-only">Filter by status</label>
         <select
+          id="event-status-filter"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
           className="block w-full appearance-none rounded-lg border border-gray-300 bg-white px-3 py-2 pr-8 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -171,37 +204,49 @@ export default function EventsPage() {
             </option>
           ))}
         </select>
-        <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
       </div>
 
-      {/* Quick Create Form - small modal just for initial creation */}
+      {/* Quick Create Form */}
       {showCreateForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="create-event-title"
+          onKeyDown={(e) => { if (e.key === "Escape") resetForm(); }}
+        >
           <Card className="w-full max-w-lg">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">
+              <h2 id="create-event-title" className="text-lg font-semibold text-gray-900">
                 Create Event
               </h2>
               <button
                 onClick={resetForm}
                 className="rounded-lg p-1 hover:bg-gray-100"
+                aria-label="Close form"
               >
                 <X className="h-5 w-5 text-gray-500" />
               </button>
             </div>
 
             {error && (
-              <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
+              <div role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
                 {error}
               </div>
             )}
 
-            <form onSubmit={handleCreate} className="space-y-4">
+            <form onSubmit={handleCreate} className="space-y-4" noValidate>
               <Input
+                ref={firstInputRef}
                 label="Event Title *"
                 id="title"
                 value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                onChange={(e) => {
+                  setForm({ ...form, title: e.target.value });
+                  setFieldErrors((p) => ({ ...p, title: "" }));
+                }}
+                error={fieldErrors.title}
                 required
               />
               <Input
@@ -216,9 +261,11 @@ export default function EventsPage() {
                   id="start_date"
                   type="datetime-local"
                   value={form.start_date}
-                  onChange={(e) =>
-                    setForm({ ...form, start_date: e.target.value })
-                  }
+                  onChange={(e) => {
+                    setForm({ ...form, start_date: e.target.value });
+                    setFieldErrors((p) => ({ ...p, start_date: "", end_date: "" }));
+                  }}
+                  error={fieldErrors.start_date}
                   required
                 />
                 <Input
@@ -226,9 +273,11 @@ export default function EventsPage() {
                   id="end_date"
                   type="datetime-local"
                   value={form.end_date}
-                  onChange={(e) =>
-                    setForm({ ...form, end_date: e.target.value })
-                  }
+                  onChange={(e) => {
+                    setForm({ ...form, end_date: e.target.value });
+                    setFieldErrors((p) => ({ ...p, end_date: "" }));
+                  }}
+                  error={fieldErrors.end_date}
                   required
                 />
               </div>
@@ -248,7 +297,7 @@ export default function EventsPage() {
       {/* Event List */}
       {loading ? (
         <div className="flex justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" role="status" aria-label="Loading events" />
         </div>
       ) : events.length === 0 ? (
         <EmptyState
@@ -257,7 +306,7 @@ export default function EventsPage() {
           description="Create your first event to start coordinating volunteers."
           action={
             <Button size="sm" onClick={() => setShowCreateForm(true)}>
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
               Create Event
             </Button>
           }
@@ -284,17 +333,17 @@ export default function EventsPage() {
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
                     <span className="flex items-center gap-1">
-                      <Calendar className="h-3.5 w-3.5" />
+                      <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
                       {formatDate(evt.start_date)}
                     </span>
                     {evt.location && (
                       <span className="flex items-center gap-1">
-                        <MapPin className="h-3.5 w-3.5" />
+                        <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
                         {evt.location}
                       </span>
                     )}
                     <span className="flex items-center gap-1">
-                      <Users className="h-3.5 w-3.5" />
+                      <Users className="h-3.5 w-3.5" aria-hidden="true" />
                       {evt.signup_count}
                       {evt.max_volunteers
                         ? `/${evt.max_volunteers}`
@@ -303,7 +352,7 @@ export default function EventsPage() {
                     </span>
                   </div>
                 </div>
-                <ChevronDown className="h-5 w-5 -rotate-90 text-gray-400" />
+                <ChevronDown className="h-5 w-5 -rotate-90 text-gray-400" aria-hidden="true" />
               </div>
             </Card>
           ))}

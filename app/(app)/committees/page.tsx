@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useOrg } from "@/hooks/use-org";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -27,19 +26,16 @@ type CommitteeMember = {
 };
 
 export default function CommitteesPage() {
-  const { profile } = useAuth();
-  const supabase = createClient();
-  const orgId = profile?.org_id;
+  const { supabase, orgId, profile } = useOrg();
 
   const [committees, setCommittees] = useState<CommitteeWithCount[]>([]);
   const [volunteers, setVolunteers] = useState<Volunteer[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [editingCommittee, setEditingCommittee] = useState<Committee | null>(
-    null
-  );
+  const [editingCommittee, setEditingCommittee] = useState<Committee | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const firstInputRef = useRef<HTMLInputElement>(null);
 
   // Members panel
   const [selectedCommittee, setSelectedCommittee] =
@@ -83,6 +79,12 @@ export default function CommitteesPage() {
     fetchVolunteers();
   }, [fetchCommittees, fetchVolunteers]);
 
+  useEffect(() => {
+    if (showForm) {
+      setTimeout(() => firstInputRef.current?.focus(), 50);
+    }
+  }, [showForm]);
+
   const resetForm = () => {
     setForm({ name: "", description: "" });
     setEditingCommittee(null);
@@ -100,6 +102,11 @@ export default function CommitteesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!orgId || !profile) return;
+    if (!form.name.trim()) {
+      setError("Committee name is required.");
+      return;
+    }
+
     setSaving(true);
     setError("");
 
@@ -161,7 +168,16 @@ export default function CommitteesPage() {
     if (!confirm(`Delete "${c.name}" committee?`)) return;
     if (!orgId || !profile) return;
 
-    await supabase.from("committees").delete().eq("id", c.id);
+    const { error: delErr } = await supabase
+      .from("committees")
+      .delete()
+      .eq("id", c.id);
+
+    if (delErr) {
+      setError(`Failed to delete committee: ${delErr.message}`);
+      return;
+    }
+
     await supabase.from("audit_log").insert({
       org_id: orgId,
       user_id: profile.id,
@@ -177,6 +193,7 @@ export default function CommitteesPage() {
   // --- Members Management ---
   const openMembersPanel = async (c: CommitteeWithCount) => {
     setSelectedCommittee(c);
+    setError("");
     const { data } = await supabase
       .from("volunteer_committees")
       .select(
@@ -207,13 +224,32 @@ export default function CommitteesPage() {
 
   const removeMember = async (volunteerId: string) => {
     if (!selectedCommittee) return;
-    await supabase
+    const { error: delErr } = await supabase
       .from("volunteer_committees")
       .delete()
       .eq("volunteer_id", volunteerId)
       .eq("committee_id", selectedCommittee.id);
+
+    if (delErr) {
+      setError(`Failed to remove member: ${delErr.message}`);
+      return;
+    }
+
     openMembersPanel(selectedCommittee);
     fetchCommittees();
+  };
+
+  const updateMemberRole = async (volunteerId: string, role: string) => {
+    if (!selectedCommittee) return;
+    const { error: updateErr } = await supabase
+      .from("volunteer_committees")
+      .update({ role: role || "Member" })
+      .eq("volunteer_id", volunteerId)
+      .eq("committee_id", selectedCommittee.id);
+
+    if (updateErr) {
+      setError(`Failed to update role: ${updateErr.message}`);
+    }
   };
 
   const assignedMemberIds = members.map((m) => m.volunteer_id);
@@ -223,35 +259,50 @@ export default function CommitteesPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Committees</h1>
         <Button onClick={() => setShowForm(true)}>
-          <Plus className="mr-2 h-4 w-4" />
+          <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
           Create Committee
         </Button>
       </div>
 
-      {/* Create/Edit Form Modal - simple form, ok as modal */}
+      {/* Page-level error */}
+      {error && !showForm && !selectedCommittee && (
+        <div role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+          {error}
+        </div>
+      )}
+
+      {/* Create/Edit Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="committee-form-title"
+          onKeyDown={(e) => { if (e.key === "Escape") resetForm(); }}
+        >
           <Card className="w-full max-w-md">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">
+              <h2 id="committee-form-title" className="text-lg font-semibold text-gray-900">
                 {editingCommittee ? "Edit Committee" : "Create Committee"}
               </h2>
               <button
                 onClick={resetForm}
                 className="rounded-lg p-1 hover:bg-gray-100"
+                aria-label="Close form"
               >
                 <X className="h-5 w-5 text-gray-500" />
               </button>
             </div>
 
             {error && !selectedCommittee && (
-              <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
+              <div role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
                 {error}
               </div>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <Input
+                ref={firstInputRef}
                 label="Committee Name *"
                 id="name"
                 value={form.name}
@@ -288,13 +339,19 @@ export default function CommitteesPage() {
         </div>
       )}
 
-      {/* Members Panel - keep as modal since it's a quick management task */}
+      {/* Members Panel */}
       {selectedCommittee && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="members-panel-title"
+          onKeyDown={(e) => { if (e.key === "Escape") setSelectedCommittee(null); }}
+        >
           <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">
+                <h2 id="members-panel-title" className="text-lg font-semibold text-gray-900">
                   {selectedCommittee.name}
                 </h2>
                 <p className="text-sm text-gray-500">
@@ -304,13 +361,14 @@ export default function CommitteesPage() {
               <button
                 onClick={() => setSelectedCommittee(null)}
                 className="rounded-lg p-1 hover:bg-gray-100"
+                aria-label="Close members panel"
               >
                 <X className="h-5 w-5 text-gray-500" />
               </button>
             </div>
 
             {error && selectedCommittee && (
-              <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
+              <div role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
                 {error}
               </div>
             )}
@@ -346,10 +404,14 @@ export default function CommitteesPage() {
                       <p className="font-medium text-gray-900">
                         {m.volunteers.first_name} {m.volunteers.last_name}
                       </p>
+                      <label className="sr-only" htmlFor={`role-${m.volunteer_id}`}>
+                        Role for {m.volunteers.first_name} {m.volunteers.last_name}
+                      </label>
                       <input
+                        id={`role-${m.volunteer_id}`}
                         type="text"
                         value={m.role || "Member"}
-                        onChange={async (e) => {
+                        onChange={(e) => {
                           const newRole = e.target.value;
                           setMembers((prev) =>
                             prev.map((mem) =>
@@ -359,14 +421,7 @@ export default function CommitteesPage() {
                             )
                           );
                         }}
-                        onBlur={async (e) => {
-                          if (!selectedCommittee) return;
-                          await supabase
-                            .from("volunteer_committees")
-                            .update({ role: e.target.value || "Member" })
-                            .eq("volunteer_id", m.volunteer_id)
-                            .eq("committee_id", selectedCommittee.id);
-                        }}
+                        onBlur={(e) => updateMemberRole(m.volunteer_id, e.target.value)}
                         className="w-28 rounded border border-gray-200 px-2 py-1 text-xs text-gray-600 focus:border-blue-500 focus:outline-none"
                         placeholder="Role"
                       />
@@ -374,7 +429,7 @@ export default function CommitteesPage() {
                     <button
                       onClick={() => removeMember(m.volunteer_id)}
                       className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
-                      title="Remove"
+                      aria-label={`Remove ${m.volunteers.first_name} ${m.volunteers.last_name}`}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -389,7 +444,7 @@ export default function CommitteesPage() {
       {/* Committee List */}
       {loading ? (
         <div className="flex justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" role="status" aria-label="Loading committees" />
         </div>
       ) : committees.length === 0 ? (
         <EmptyState
@@ -398,7 +453,7 @@ export default function CommitteesPage() {
           description="Create committees to organize your volunteers into working groups."
           action={
             <Button size="sm" onClick={() => setShowForm(true)}>
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
               Create Committee
             </Button>
           }
@@ -420,7 +475,7 @@ export default function CommitteesPage() {
                     </p>
                   )}
                   <div className="mt-3 flex items-center gap-1 text-sm text-gray-500">
-                    <Users className="h-4 w-4" />
+                    <Users className="h-4 w-4" aria-hidden="true" />
                     <span>
                       {c.member_count} member{c.member_count !== 1 && "s"}
                     </span>
@@ -433,14 +488,14 @@ export default function CommitteesPage() {
                   <button
                     onClick={() => openEdit(c)}
                     className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                    title="Edit"
+                    aria-label={`Edit ${c.name}`}
                   >
                     <Edit2 className="h-4 w-4" />
                   </button>
                   <button
                     onClick={() => handleDelete(c)}
                     className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600"
-                    title="Delete"
+                    aria-label={`Delete ${c.name}`}
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>

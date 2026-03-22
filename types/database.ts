@@ -107,6 +107,18 @@ export interface EventVolunteer {
   created_at: string;
 }
 
+export type InviteStatus = "pending" | "accepted" | "expired";
+
+export interface TeamInvite {
+  id: string;
+  org_id: string;
+  email: string;
+  role: UserRole;
+  invited_by: string;
+  status: InviteStatus;
+  created_at: string;
+}
+
 export type AuditAction =
   | "volunteer.created"
   | "volunteer.updated"
@@ -120,7 +132,9 @@ export type AuditAction =
   | "signup.created"
   | "signup.deleted"
   | "hours.logged"
-  | "org.updated";
+  | "org.updated"
+  | "team.invited"
+  | "team.invite_revoked";
 
 export interface AuditLog {
   id: string;

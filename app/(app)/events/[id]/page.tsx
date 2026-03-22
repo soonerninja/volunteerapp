@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
+import { useOrg } from "@/hooks/use-org";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -15,10 +14,6 @@ import {
   Save,
   Trash2,
   X,
-  Clock,
-  Users,
-  Calendar,
-  MapPin,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -33,15 +28,11 @@ type EventVolunteerRow = {
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { profile } = useAuth();
-  const supabase = createClient();
-  const orgId = profile?.org_id;
+  const { supabase, orgId, profile } = useOrg();
 
   const [event, setEvent] = useState<Event | null>(null);
   const [volunteers, setVolunteers] = useState<Volunteer[]>([]);
-  const [eventVolunteers, setEventVolunteers] = useState<EventVolunteerRow[]>(
-    []
-  );
+  const [eventVolunteers, setEventVolunteers] = useState<EventVolunteerRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -49,8 +40,8 @@ export default function EventDetailPage() {
   const [hoursEdits, setHoursEdits] = useState<Record<string, string>>({});
   const [assignRole, setAssignRole] = useState("");
   const [stagedVolunteer, setStagedVolunteer] = useState<Volunteer | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  // Form state
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -116,9 +107,35 @@ export default function EventDetailPage() {
     );
   }, [fetchEvent, fetchVolunteers, fetchEventVolunteers]);
 
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+
+    if (!form.title.trim()) errors.title = "Title is required.";
+    if (!form.start_date) errors.start_date = "Start date is required.";
+    if (!form.end_date) errors.end_date = "End date is required.";
+
+    if (form.start_date && form.end_date) {
+      if (new Date(form.end_date) <= new Date(form.start_date)) {
+        errors.end_date = "End date must be after start date.";
+      }
+    }
+
+    if (form.max_volunteers) {
+      const maxVol = parseInt(form.max_volunteers);
+      if (isNaN(maxVol) || maxVol < 1) {
+        errors.max_volunteers = "Must be a positive number.";
+      }
+    }
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!orgId || !profile || !event) return;
+    if (!validateForm()) return;
+
     setSaving(true);
     setError("");
     setSuccess("");
@@ -165,7 +182,16 @@ export default function EventDetailPage() {
     if (!event || !orgId || !profile) return;
     if (!confirm(`Delete "${event.title}"? This cannot be undone.`)) return;
 
-    await supabase.from("events").delete().eq("id", event.id);
+    const { error: delErr } = await supabase
+      .from("events")
+      .delete()
+      .eq("id", event.id);
+
+    if (delErr) {
+      setError(`Failed to delete event: ${delErr.message}`);
+      return;
+    }
+
     await supabase.from("audit_log").insert({
       org_id: orgId,
       user_id: profile.id,
@@ -209,7 +235,16 @@ export default function EventDetailPage() {
 
   const removeVolunteer = async (evId: string) => {
     if (!orgId || !profile || !event) return;
-    await supabase.from("event_volunteers").delete().eq("id", evId);
+    const { error: delErr } = await supabase
+      .from("event_volunteers")
+      .delete()
+      .eq("id", evId);
+
+    if (delErr) {
+      setError(`Failed to remove volunteer: ${delErr.message}`);
+      return;
+    }
+
     await supabase.from("audit_log").insert({
       org_id: orgId,
       user_id: profile.id,
@@ -222,12 +257,17 @@ export default function EventDetailPage() {
 
   const saveHours = async (evId: string) => {
     const hours = parseFloat(hoursEdits[evId] || "0");
-    if (isNaN(hours) || !orgId || !profile || !event) return;
+    if (isNaN(hours) || hours < 0 || !orgId || !profile || !event) return;
 
-    await supabase
+    const { error: updateErr } = await supabase
       .from("event_volunteers")
       .update({ hours_logged: hours })
       .eq("id", evId);
+
+    if (updateErr) {
+      setError(`Failed to save hours: ${updateErr.message}`);
+      return;
+    }
 
     await supabase.from("audit_log").insert({
       org_id: orgId,
@@ -251,7 +291,7 @@ export default function EventDetailPage() {
   if (loading) {
     return (
       <div className="flex justify-center py-12">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" role="status" aria-label="Loading event" />
       </div>
     );
   }
@@ -261,17 +301,17 @@ export default function EventDetailPage() {
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-gray-500">
+      <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm text-gray-500">
         <Link
           href="/events"
           className="flex items-center gap-1 text-blue-600 hover:text-blue-800"
         >
-          <ArrowLeft className="h-3.5 w-3.5" />
+          <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
           Events
         </Link>
-        <span>/</span>
+        <span aria-hidden="true">/</span>
         <span className="text-gray-900">{event.title}</span>
-      </div>
+      </nav>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Left: Event Details Form */}
@@ -282,32 +322,35 @@ export default function EventDetailPage() {
             </h2>
 
             {error && (
-              <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
+              <div role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
                 {error}
               </div>
             )}
             {success && (
-              <div className="mb-4 rounded-lg bg-green-50 p-3 text-sm text-green-700">
+              <div role="status" className="mb-4 rounded-lg bg-green-50 p-3 text-sm text-green-700">
                 {success}
               </div>
             )}
 
-            <form onSubmit={handleSave} className="space-y-4">
+            <form onSubmit={handleSave} className="space-y-4" noValidate>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Input
                   label="Event Name *"
                   id="title"
                   value={form.title}
-                  onChange={(e) =>
-                    setForm({ ...form, title: e.target.value })
-                  }
+                  onChange={(e) => {
+                    setForm({ ...form, title: e.target.value });
+                    setFieldErrors((p) => ({ ...p, title: "" }));
+                  }}
+                  error={fieldErrors.title}
                   required
                 />
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                  <label htmlFor="event-status" className="mb-1.5 block text-sm font-medium text-gray-700">
                     Status
                   </label>
                   <select
+                    id="event-status"
                     value={form.status}
                     onChange={(e) =>
                       setForm({ ...form, status: e.target.value })
@@ -328,9 +371,11 @@ export default function EventDetailPage() {
                   id="start_date"
                   type="datetime-local"
                   value={form.start_date}
-                  onChange={(e) =>
-                    setForm({ ...form, start_date: e.target.value })
-                  }
+                  onChange={(e) => {
+                    setForm({ ...form, start_date: e.target.value });
+                    setFieldErrors((p) => ({ ...p, start_date: "", end_date: "" }));
+                  }}
+                  error={fieldErrors.start_date}
                   required
                 />
                 <Input
@@ -338,9 +383,11 @@ export default function EventDetailPage() {
                   id="end_date"
                   type="datetime-local"
                   value={form.end_date}
-                  onChange={(e) =>
-                    setForm({ ...form, end_date: e.target.value })
-                  }
+                  onChange={(e) => {
+                    setForm({ ...form, end_date: e.target.value });
+                    setFieldErrors((p) => ({ ...p, end_date: "" }));
+                  }}
+                  error={fieldErrors.end_date}
                   required
                 />
                 <Input
@@ -359,9 +406,11 @@ export default function EventDetailPage() {
                 type="number"
                 min="1"
                 value={form.max_volunteers}
-                onChange={(e) =>
-                  setForm({ ...form, max_volunteers: e.target.value })
-                }
+                onChange={(e) => {
+                  setForm({ ...form, max_volunteers: e.target.value });
+                  setFieldErrors((p) => ({ ...p, max_volunteers: "" }));
+                }}
+                error={fieldErrors.max_volunteers}
               />
 
               <div>
@@ -385,7 +434,7 @@ export default function EventDetailPage() {
               <div className="flex items-center justify-between pt-2">
                 <div className="flex gap-3">
                   <Button type="submit" loading={saving}>
-                    <Save className="mr-2 h-4 w-4" />
+                    <Save className="mr-2 h-4 w-4" aria-hidden="true" />
                     Save Changes
                   </Button>
                   <Button
@@ -402,7 +451,7 @@ export default function EventDetailPage() {
                   onClick={handleDelete}
                   className="!border-red-200 !text-red-600 hover:!bg-red-50"
                 >
-                  <Trash2 className="mr-2 h-4 w-4" />
+                  <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
                   Delete
                 </Button>
               </div>
@@ -422,7 +471,6 @@ export default function EventDetailPage() {
               </span>
             </div>
 
-            {/* Volunteer table */}
             {eventVolunteers.length > 0 && (
               <div className="mb-4">
                 <div className="mb-2 grid grid-cols-[1fr_auto_auto] gap-2 text-xs font-medium uppercase text-gray-500">
@@ -458,7 +506,11 @@ export default function EventDetailPage() {
                           )}
                         </div>
                         <div className="flex w-20 items-center gap-1">
+                          <label className="sr-only" htmlFor={`hours-${ev.id}`}>
+                            Hours for {ev.volunteers.first_name} {ev.volunteers.last_name}
+                          </label>
                           <input
+                            id={`hours-${ev.id}`}
                             type="number"
                             step="0.25"
                             min="0"
@@ -480,7 +532,7 @@ export default function EventDetailPage() {
                         <button
                           onClick={() => removeVolunteer(ev.id)}
                           className="flex h-6 w-6 items-center justify-center rounded text-gray-400 hover:bg-red-50 hover:text-red-600"
-                          title="Remove"
+                          aria-label={`Remove ${ev.volunteers.first_name} ${ev.volunteers.last_name}`}
                         >
                           <X className="h-3.5 w-3.5" />
                         </button>
@@ -509,11 +561,14 @@ export default function EventDetailPage() {
                     <button
                       onClick={() => setStagedVolunteer(null)}
                       className="rounded p-0.5 text-blue-400 hover:text-blue-600"
+                      aria-label="Cancel selection"
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
                   </div>
+                  <label className="sr-only" htmlFor="assign-role">Role for volunteer</label>
                   <input
+                    id="assign-role"
                     type="text"
                     value={assignRole}
                     onChange={(e) => setAssignRole(e.target.value)}

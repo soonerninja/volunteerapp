@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useOrg } from "@/hooks/use-org";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -42,10 +41,11 @@ const STATUS_COLORS: Record<string, string> = {
   on_leave: "bg-amber-100 text-amber-700",
 };
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_RE = /^[+\d\s().-]{7,20}$/;
+
 export default function VolunteersPage() {
-  const { profile } = useAuth();
-  const supabase = createClient();
-  const orgId = profile?.org_id;
+  const { supabase, orgId, profile } = useOrg();
 
   const [volunteers, setVolunteers] = useState<VolunteerWithDetails[]>([]);
   const [skills, setSkills] = useState<Skill[]>([]);
@@ -57,6 +57,7 @@ export default function VolunteersPage() {
     useState<VolunteerWithDetails | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const firstInputRef = useRef<HTMLInputElement>(null);
 
   // Filters
   const [search, setSearch] = useState("");
@@ -77,6 +78,7 @@ export default function VolunteersPage() {
     selectedSkills: {} as Record<string, boolean>,
     selectedRoles: {} as Record<string, boolean>,
   });
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const fetchVolunteers = useCallback(async () => {
     if (!orgId) return;
@@ -107,7 +109,6 @@ export default function VolunteersPage() {
       volSkills = skillsRes.data || [];
       volCommittees = committeesRes.data || [];
 
-      // volunteer_roles table may not exist yet if migration hasn't run
       const rolesRes = await supabase
         .from("volunteer_roles")
         .select("volunteer_id, role_id")
@@ -173,6 +174,13 @@ export default function VolunteersPage() {
     fetchCommittees();
   }, [fetchVolunteers, fetchSkills, fetchRoles, fetchCommittees]);
 
+  // Focus first input when modal opens
+  useEffect(() => {
+    if (showForm) {
+      setTimeout(() => firstInputRef.current?.focus(), 50);
+    }
+  }, [showForm]);
+
   const resetForm = () => {
     setForm({
       first_name: "",
@@ -188,6 +196,7 @@ export default function VolunteersPage() {
     setEditingVolunteer(null);
     setShowForm(false);
     setError("");
+    setFieldErrors({});
   };
 
   const openEdit = (vol: VolunteerWithDetails) => {
@@ -213,11 +222,32 @@ export default function VolunteersPage() {
     });
     setShowForm(true);
     setError("");
+    setFieldErrors({});
+  };
+
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+
+    if (!form.first_name.trim()) errors.first_name = "First name is required.";
+    if (!form.last_name.trim()) errors.last_name = "Last name is required.";
+
+    if (form.email.trim() && !EMAIL_RE.test(form.email.trim())) {
+      errors.email = "Please enter a valid email address.";
+    }
+
+    if (form.phone.trim() && !PHONE_RE.test(form.phone.trim())) {
+      errors.phone = "Please enter a valid phone number.";
+    }
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!orgId || !profile) return;
+    if (!validateForm()) return;
+
     setSaving(true);
     setError("");
 
@@ -247,12 +277,10 @@ export default function VolunteersPage() {
       }
       volunteerId = editingVolunteer.id;
 
-      // Remove old skills and roles
       await supabase
         .from("volunteer_skills")
         .delete()
         .eq("volunteer_id", volunteerId);
-      // Try to delete roles (table may not exist)
       await supabase
         .from("volunteer_roles")
         .delete()
@@ -290,7 +318,6 @@ export default function VolunteersPage() {
       });
     }
 
-    // Insert selected skills
     const selectedSkillIds = Object.entries(form.selectedSkills)
       .filter(([, selected]) => selected)
       .map(([skillId]) => ({
@@ -298,7 +325,6 @@ export default function VolunteersPage() {
         skill_id: skillId,
       }));
 
-    // Insert selected roles
     const selectedRoleIds = Object.entries(form.selectedRoles)
       .filter(([, selected]) => selected)
       .map(([roleId]) => ({
@@ -322,7 +348,16 @@ export default function VolunteersPage() {
     if (!confirm(`Delete ${vol.first_name} ${vol.last_name}?`)) return;
     if (!orgId || !profile) return;
 
-    await supabase.from("volunteers").delete().eq("id", vol.id);
+    const { error: delErr } = await supabase
+      .from("volunteers")
+      .delete()
+      .eq("id", vol.id);
+
+    if (delErr) {
+      setError(`Failed to delete volunteer: ${delErr.message}`);
+      return;
+    }
+
     await supabase.from("audit_log").insert({
       org_id: orgId,
       user_id: profile.id,
@@ -358,7 +393,6 @@ export default function VolunteersPage() {
     setCommitteeFilter("");
   };
 
-  // Map skill/role IDs to names for display
   const skillMap = new Map(skills.map((s) => [s.id, s.name]));
   const roleMap = new Map(roles.map((r) => [r.id, r.name]));
 
@@ -372,22 +406,29 @@ export default function VolunteersPage() {
           </span>
         </div>
         <Button onClick={() => setShowForm(true)}>
-          <Plus className="mr-2 h-4 w-4" />
+          <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
           Add Volunteer
         </Button>
       </div>
 
+      {/* Page-level error */}
+      {error && !showForm && (
+        <div role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+          {error}
+        </div>
+      )}
+
       {/* Filters */}
       <Card padding="sm">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          {/* Search */}
           <div className="relative">
-            <label className="mb-1 block text-xs font-medium text-gray-500">
+            <label htmlFor="vol-search" className="mb-1 block text-xs font-medium text-gray-500">
               Name / Email
             </label>
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" aria-hidden="true" />
               <input
+                id="vol-search"
                 placeholder="Search..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -396,13 +437,13 @@ export default function VolunteersPage() {
             </div>
           </div>
 
-          {/* Status */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-500">
+            <label htmlFor="vol-status" className="mb-1 block text-xs font-medium text-gray-500">
               Status
             </label>
             <div className="relative">
               <select
+                id="vol-status"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="block w-full appearance-none rounded-lg border border-gray-300 bg-white px-3 py-2 pr-8 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -413,17 +454,17 @@ export default function VolunteersPage() {
                   </option>
                 ))}
               </select>
-              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
             </div>
           </div>
 
-          {/* Skill filter */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-500">
+            <label htmlFor="vol-skill" className="mb-1 block text-xs font-medium text-gray-500">
               Skill / Program
             </label>
             <div className="relative">
               <select
+                id="vol-skill"
                 value={skillFilter}
                 onChange={(e) => setSkillFilter(e.target.value)}
                 className="block w-full appearance-none rounded-lg border border-gray-300 bg-white px-3 py-2 pr-8 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -435,18 +476,18 @@ export default function VolunteersPage() {
                   </option>
                 ))}
               </select>
-              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
             </div>
           </div>
 
-          {/* Role filter */}
           {roles.length > 0 && (
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500">
+              <label htmlFor="vol-role" className="mb-1 block text-xs font-medium text-gray-500">
                 Role
               </label>
               <div className="relative">
                 <select
+                  id="vol-role"
                   value={roleFilter}
                   onChange={(e) => setRoleFilter(e.target.value)}
                   className="block w-full appearance-none rounded-lg border border-gray-300 bg-white px-3 py-2 pr-8 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -458,19 +499,19 @@ export default function VolunteersPage() {
                     </option>
                   ))}
                 </select>
-                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
               </div>
             </div>
           )}
 
-          {/* Committee filter */}
           {committees.length > 0 && (
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500">
+              <label htmlFor="vol-committee" className="mb-1 block text-xs font-medium text-gray-500">
                 Committee
               </label>
               <div className="relative">
                 <select
+                  id="vol-committee"
                   value={committeeFilter}
                   onChange={(e) => setCommitteeFilter(e.target.value)}
                   className="block w-full appearance-none rounded-lg border border-gray-300 bg-white px-3 py-2 pr-8 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -482,7 +523,7 @@ export default function VolunteersPage() {
                     </option>
                   ))}
                 </select>
-                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
               </div>
             </div>
           )}
@@ -490,7 +531,7 @@ export default function VolunteersPage() {
 
         {hasActiveFilters && (
           <div className="mt-3 flex items-center gap-2">
-            <Filter className="h-3.5 w-3.5 text-gray-400" />
+            <Filter className="h-3.5 w-3.5 text-gray-400" aria-hidden="true" />
             <span className="text-xs text-gray-500">
               Showing {filtered.length} of {volunteers.length}
             </span>
@@ -506,44 +547,56 @@ export default function VolunteersPage() {
 
       {/* Add/Edit Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="vol-form-title"
+          onKeyDown={(e) => { if (e.key === "Escape") resetForm(); }}
+        >
           <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">
+              <h2 id="vol-form-title" className="text-lg font-semibold text-gray-900">
                 {editingVolunteer ? "Edit Volunteer" : "Add Volunteer"}
               </h2>
               <button
                 onClick={resetForm}
                 className="rounded-lg p-1 hover:bg-gray-100"
+                aria-label="Close form"
               >
                 <X className="h-5 w-5 text-gray-500" />
               </button>
             </div>
 
             {error && (
-              <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
+              <div role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
                 {error}
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
               <div className="grid grid-cols-2 gap-3">
                 <Input
+                  ref={firstInputRef}
                   label="First Name *"
                   id="first_name"
                   value={form.first_name}
-                  onChange={(e) =>
-                    setForm({ ...form, first_name: e.target.value })
-                  }
+                  onChange={(e) => {
+                    setForm({ ...form, first_name: e.target.value });
+                    setFieldErrors((p) => ({ ...p, first_name: "" }));
+                  }}
+                  error={fieldErrors.first_name}
                   required
                 />
                 <Input
                   label="Last Name *"
                   id="last_name"
                   value={form.last_name}
-                  onChange={(e) =>
-                    setForm({ ...form, last_name: e.target.value })
-                  }
+                  onChange={(e) => {
+                    setForm({ ...form, last_name: e.target.value });
+                    setFieldErrors((p) => ({ ...p, last_name: "" }));
+                  }}
+                  error={fieldErrors.last_name}
                   required
                 />
               </div>
@@ -552,20 +605,30 @@ export default function VolunteersPage() {
                 id="email"
                 type="email"
                 value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                onChange={(e) => {
+                  setForm({ ...form, email: e.target.value });
+                  setFieldErrors((p) => ({ ...p, email: "" }));
+                }}
+                error={fieldErrors.email}
               />
               <Input
                 label="Phone"
                 id="phone"
                 type="tel"
+                placeholder="e.g., (555) 123-4567"
                 value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                onChange={(e) => {
+                  setForm({ ...form, phone: e.target.value });
+                  setFieldErrors((p) => ({ ...p, phone: "" }));
+                }}
+                error={fieldErrors.phone}
               />
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                <label htmlFor="vol-status-form" className="mb-1.5 block text-sm font-medium text-gray-700">
                   Status
                 </label>
                 <select
+                  id="vol-status-form"
                   value={form.status}
                   onChange={(e) => setForm({ ...form, status: e.target.value })}
                   className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -585,12 +648,11 @@ export default function VolunteersPage() {
                 }
               />
 
-              {/* Skills - simple checkboxes like the original */}
               {skills.length > 0 && (
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                <fieldset>
+                  <legend className="mb-2 text-sm font-medium text-gray-700">
                     Skills & Programs
-                  </label>
+                  </legend>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                     {skills.map((skill) => (
                       <label
@@ -615,15 +677,14 @@ export default function VolunteersPage() {
                       </label>
                     ))}
                   </div>
-                </div>
+                </fieldset>
               )}
 
-              {/* Roles */}
               {roles.length > 0 && (
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                <fieldset>
+                  <legend className="mb-2 text-sm font-medium text-gray-700">
                     Roles
-                  </label>
+                  </legend>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                     {roles.map((role) => (
                       <label
@@ -648,7 +709,7 @@ export default function VolunteersPage() {
                       </label>
                     ))}
                   </div>
-                </div>
+                </fieldset>
               )}
 
               <div>
@@ -682,7 +743,7 @@ export default function VolunteersPage() {
       {/* Volunteer List */}
       {loading ? (
         <div className="flex justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" role="status" aria-label="Loading volunteers" />
         </div>
       ) : filtered.length === 0 ? (
         <EmptyState
@@ -700,7 +761,7 @@ export default function VolunteersPage() {
           action={
             volunteers.length === 0 ? (
               <Button size="sm" onClick={() => setShowForm(true)}>
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
                 Add Volunteer
               </Button>
             ) : undefined
@@ -736,13 +797,13 @@ export default function VolunteersPage() {
                     <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
                       {vol.email && (
                         <span className="flex items-center gap-1">
-                          <Mail className="h-3.5 w-3.5" />
+                          <Mail className="h-3.5 w-3.5" aria-hidden="true" />
                           {vol.email}
                         </span>
                       )}
                       {vol.phone && (
                         <span className="flex items-center gap-1">
-                          <Phone className="h-3.5 w-3.5" />
+                          <Phone className="h-3.5 w-3.5" aria-hidden="true" />
                           {vol.phone}
                         </span>
                       )}
@@ -751,7 +812,6 @@ export default function VolunteersPage() {
                       )}
                     </div>
 
-                    {/* Roles */}
                     {volRoleNames.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1">
                         {volRoleNames.map((name) => (
@@ -759,14 +819,13 @@ export default function VolunteersPage() {
                             key={name}
                             className="inline-flex items-center gap-1 rounded-full bg-purple-50 px-2 py-0.5 text-xs text-purple-700"
                           >
-                            <Shield className="h-3 w-3" />
+                            <Shield className="h-3 w-3" aria-hidden="true" />
                             {name}
                           </span>
                         ))}
                       </div>
                     )}
 
-                    {/* Skills */}
                     {volSkillNames.length > 0 && (
                       <div className="mt-1.5 flex flex-wrap gap-1">
                         {volSkillNames.map((name) => (
@@ -784,14 +843,14 @@ export default function VolunteersPage() {
                     <button
                       onClick={() => openEdit(vol)}
                       className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                      title="Edit"
+                      aria-label={`Edit ${vol.first_name} ${vol.last_name}`}
                     >
                       <Edit2 className="h-4 w-4" />
                     </button>
                     <button
                       onClick={() => handleDelete(vol)}
                       className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600"
-                      title="Delete"
+                      aria-label={`Delete ${vol.first_name} ${vol.last_name}`}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>

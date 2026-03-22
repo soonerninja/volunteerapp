@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useOrg } from "@/hooks/use-org";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import type { Organization, Profile, Skill, Role } from "@/types/database";
+import type { Organization, Profile, Skill, Role, TeamInvite } from "@/types/database";
 import {
   Building2,
   Users,
@@ -15,6 +14,9 @@ import {
   Plus,
   X,
   Save,
+  Mail,
+  Clock,
+  Trash2,
 } from "lucide-react";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -24,10 +26,21 @@ const ROLE_LABELS: Record<string, string> = {
   viewer: "Viewer",
 };
 
+const ROLE_COLORS: Record<string, string> = {
+  owner: "bg-blue-50 text-blue-700",
+  admin: "bg-purple-50 text-purple-700",
+  editor: "bg-green-50 text-green-700",
+  viewer: "bg-gray-100 text-gray-700",
+};
+
+const INVITABLE_ROLES = [
+  { value: "admin", label: "Admin" },
+  { value: "editor", label: "Editor" },
+  { value: "viewer", label: "Viewer" },
+];
+
 export default function SettingsPage() {
-  const { profile, refreshProfile } = useAuth();
-  const supabase = createClient();
-  const orgId = profile?.org_id;
+  const { supabase, orgId, profile, refreshProfile } = useOrg();
 
   const [activeTab, setActiveTab] = useState<
     "organization" | "team" | "skills" | "roles"
@@ -42,6 +55,15 @@ export default function SettingsPage() {
   // Team
   const [teamMembers, setTeamMembers] = useState<Profile[]>([]);
   const [loadingTeam, setLoadingTeam] = useState(true);
+
+  // Invites
+  const [invites, setInvites] = useState<TeamInvite[]>([]);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState("editor");
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteError, setInviteError] = useState("");
+  const [inviteSuccess, setInviteSuccess] = useState("");
+  const inviteEmailRef = useRef<HTMLInputElement>(null);
 
   // Skills
   const [skills, setSkills] = useState<Skill[]>([]);
@@ -80,6 +102,17 @@ export default function SettingsPage() {
     setLoadingTeam(false);
   }, [orgId, supabase]);
 
+  const fetchInvites = useCallback(async () => {
+    if (!orgId) return;
+    const { data } = await supabase
+      .from("team_invites")
+      .select("*")
+      .eq("org_id", orgId)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false });
+    setInvites(data || []);
+  }, [orgId, supabase]);
+
   const fetchSkills = useCallback(async () => {
     if (!orgId) return;
     setLoadingSkills(true);
@@ -107,16 +140,17 @@ export default function SettingsPage() {
   useEffect(() => {
     fetchOrg();
     fetchTeam();
+    fetchInvites();
     fetchSkills();
     fetchRoles();
-  }, [fetchOrg, fetchTeam, fetchSkills, fetchRoles]);
+  }, [fetchOrg, fetchTeam, fetchInvites, fetchSkills, fetchRoles]);
 
+  // --- Org ---
   const saveOrgName = async () => {
     if (!orgId || !profile || !orgName.trim()) return;
     setSavingOrg(true);
     setOrgMsg("");
 
-    // Generate new slug from name
     const baseSlug = orgName
       .trim()
       .toLowerCase()
@@ -147,6 +181,93 @@ export default function SettingsPage() {
     setSavingOrg(false);
   };
 
+  // --- Invites ---
+  const sendInvite = async () => {
+    if (!orgId || !profile) return;
+    const email = inviteEmail.trim().toLowerCase();
+
+    // Validate email
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setInviteError("Please enter a valid email address.");
+      return;
+    }
+
+    // Check if already a team member
+    if (teamMembers.some((m) => m.email?.toLowerCase() === email)) {
+      setInviteError("This person is already a team member.");
+      return;
+    }
+
+    // Check if already invited
+    if (invites.some((i) => i.email.toLowerCase() === email)) {
+      setInviteError("This email has already been invited.");
+      return;
+    }
+
+    setInviteLoading(true);
+    setInviteError("");
+    setInviteSuccess("");
+
+    const { error } = await supabase.from("team_invites").insert({
+      org_id: orgId,
+      email,
+      role: inviteRole,
+      invited_by: profile.id,
+    });
+
+    if (error) {
+      setInviteError(
+        error.message.includes("duplicate")
+          ? "This email has already been invited."
+          : error.message
+      );
+      setInviteLoading(false);
+      return;
+    }
+
+    await supabase.from("audit_log").insert({
+      org_id: orgId,
+      user_id: profile.id,
+      action: "team.invited",
+      entity_type: "team_invite",
+      entity_id: null,
+      metadata: { email, role: inviteRole },
+    });
+
+    setInviteEmail("");
+    setInviteRole("editor");
+    setInviteSuccess(`Invite sent to ${email}. They'll join your org when they sign up.`);
+    setInviteLoading(false);
+    fetchInvites();
+    setTimeout(() => setInviteSuccess(""), 5000);
+    inviteEmailRef.current?.focus();
+  };
+
+  const revokeInvite = async (invite: TeamInvite) => {
+    if (!orgId || !profile) return;
+    const { error } = await supabase
+      .from("team_invites")
+      .delete()
+      .eq("id", invite.id);
+
+    if (error) {
+      setInviteError(error.message);
+      return;
+    }
+
+    await supabase.from("audit_log").insert({
+      org_id: orgId,
+      user_id: profile.id,
+      action: "team.invite_revoked",
+      entity_type: "team_invite",
+      entity_id: invite.id,
+      metadata: { email: invite.email },
+    });
+
+    fetchInvites();
+  };
+
+  // --- Skills ---
   const addSkill = async () => {
     if (!orgId || !newSkillName.trim()) return;
     setSkillError("");
@@ -168,10 +289,15 @@ export default function SettingsPage() {
 
   const deleteSkill = async (skill: Skill) => {
     if (!confirm(`Delete "${skill.name}" skill?`)) return;
-    await supabase.from("skills").delete().eq("id", skill.id);
+    const { error } = await supabase.from("skills").delete().eq("id", skill.id);
+    if (error) {
+      setSkillError(`Failed to delete: ${error.message}`);
+      return;
+    }
     fetchSkills();
   };
 
+  // --- Roles ---
   const addRole = async () => {
     if (!orgId || !newRoleName.trim()) return;
     setRoleError("");
@@ -193,7 +319,11 @@ export default function SettingsPage() {
 
   const deleteRole = async (role: Role) => {
     if (!confirm(`Delete "${role.name}" role?`)) return;
-    await supabase.from("roles").delete().eq("id", role.id);
+    const { error } = await supabase.from("roles").delete().eq("id", role.id);
+    if (error) {
+      setRoleError(`Failed to delete: ${error.message}`);
+      return;
+    }
     fetchRoles();
   };
 
@@ -209,10 +339,13 @@ export default function SettingsPage() {
       <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
 
       {/* Tabs */}
-      <div className="flex gap-1 rounded-lg bg-gray-100 p-1">
+      <div className="flex gap-1 rounded-lg bg-gray-100 p-1" role="tablist" aria-label="Settings sections">
         {tabs.map((tab) => (
           <button
             key={tab.id}
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            aria-controls={`panel-${tab.id}`}
             onClick={() => setActiveTab(tab.id)}
             className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
               activeTab === tab.id
@@ -220,7 +353,7 @@ export default function SettingsPage() {
                 : "text-gray-600 hover:text-gray-900"
             }`}
           >
-            <tab.icon className="h-4 w-4" />
+            <tab.icon className="h-4 w-4" aria-hidden="true" />
             {tab.label}
           </button>
         ))}
@@ -228,7 +361,7 @@ export default function SettingsPage() {
 
       {/* Organization Tab */}
       {activeTab === "organization" && (
-        <Card>
+        <Card id="panel-organization" role="tabpanel" aria-labelledby="tab-organization">
           <h2 className="mb-4 text-lg font-semibold text-gray-900">
             Organization Settings
           </h2>
@@ -242,7 +375,7 @@ export default function SettingsPage() {
             {org && (
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <Shield className="h-4 w-4" />
+                  <Shield className="h-4 w-4" aria-hidden="true" />
                   <span>
                     Plan:{" "}
                     <span className="font-medium text-gray-700">
@@ -258,6 +391,7 @@ export default function SettingsPage() {
             )}
             {orgMsg && (
               <p
+                role="status"
                 className={`text-sm ${orgMsg.includes("error") || orgMsg.includes("Error") ? "text-red-600" : "text-green-600"}`}
               >
                 {orgMsg}
@@ -268,7 +402,7 @@ export default function SettingsPage() {
               loading={savingOrg}
               disabled={orgName === org?.name}
             >
-              <Save className="mr-2 h-4 w-4" />
+              <Save className="mr-2 h-4 w-4" aria-hidden="true" />
               Save Changes
             </Button>
           </div>
@@ -277,40 +411,145 @@ export default function SettingsPage() {
 
       {/* Team Tab */}
       {activeTab === "team" && (
-        <Card>
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            Team Members
-          </h2>
-          {loadingTeam ? (
-            <div className="flex justify-center py-8">
-              <div className="h-6 w-6 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {teamMembers.map((member) => (
-                <div
-                  key={member.id}
-                  className="flex items-center justify-between rounded-lg border border-gray-100 p-4"
+        <div id="panel-team" role="tabpanel" aria-labelledby="tab-team" className="space-y-6">
+          {/* Invite Form */}
+          <Card>
+            <h2 className="mb-2 text-lg font-semibold text-gray-900">
+              Invite Team Member
+            </h2>
+            <p className="mb-4 text-sm text-gray-500">
+              Invite people to help manage your organization. They&apos;ll join
+              automatically when they sign up with the invited email.
+            </p>
+
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="flex-1">
+                <Input
+                  ref={inviteEmailRef}
+                  placeholder="colleague@example.com"
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => {
+                    setInviteEmail(e.target.value);
+                    setInviteError("");
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      sendInvite();
+                    }
+                  }}
+                  aria-label="Email address to invite"
+                />
+              </div>
+              <div className="w-full sm:w-36">
+                <select
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value)}
+                  aria-label="Role for invited member"
+                  className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
-                  <div>
-                    <p className="font-medium text-gray-900">
-                      {member.full_name || "Unnamed"}
-                    </p>
-                    <p className="text-sm text-gray-500">{member.email}</p>
-                  </div>
-                  <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
-                    {ROLE_LABELS[member.role] || member.role}
-                  </span>
-                </div>
-              ))}
+                  {INVITABLE_ROLES.map((r) => (
+                    <option key={r.value} value={r.value}>
+                      {r.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <Button
+                onClick={sendInvite}
+                loading={inviteLoading}
+                disabled={!inviteEmail.trim()}
+              >
+                <Mail className="mr-2 h-4 w-4" aria-hidden="true" />
+                Send Invite
+              </Button>
             </div>
+
+            {inviteError && (
+              <p role="alert" className="mt-2 text-sm text-red-600">
+                {inviteError}
+              </p>
+            )}
+            {inviteSuccess && (
+              <p role="status" className="mt-2 text-sm text-green-600">
+                {inviteSuccess}
+              </p>
+            )}
+          </Card>
+
+          {/* Pending Invites */}
+          {invites.length > 0 && (
+            <Card>
+              <h3 className="mb-3 font-semibold text-gray-900">
+                Pending Invites ({invites.length})
+              </h3>
+              <div className="space-y-2">
+                {invites.map((invite) => (
+                  <div
+                    key={invite.id}
+                    className="flex items-center justify-between rounded-lg border border-dashed border-gray-200 bg-gray-50 p-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Clock className="h-4 w-4 text-gray-400" aria-hidden="true" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-700">
+                          {invite.email}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          Invited as {ROLE_LABELS[invite.role] || invite.role}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => revokeInvite(invite)}
+                      className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                      aria-label={`Revoke invite for ${invite.email}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </Card>
           )}
-        </Card>
+
+          {/* Current Team Members */}
+          <Card>
+            <h2 className="mb-4 text-lg font-semibold text-gray-900">
+              Team Members
+            </h2>
+            {loadingTeam ? (
+              <div className="flex justify-center py-8">
+                <div className="h-6 w-6 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" role="status" aria-label="Loading team members" />
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {teamMembers.map((member) => (
+                  <div
+                    key={member.id}
+                    className="flex items-center justify-between rounded-lg border border-gray-100 p-4"
+                  >
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {member.full_name || "Unnamed"}
+                      </p>
+                      <p className="text-sm text-gray-500">{member.email}</p>
+                    </div>
+                    <span className={`rounded-full px-3 py-1 text-xs font-medium ${ROLE_COLORS[member.role] || "bg-gray-100 text-gray-700"}`}>
+                      {ROLE_LABELS[member.role] || member.role}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
       )}
 
       {/* Skills Tab */}
       {activeTab === "skills" && (
-        <div className="space-y-6">
+        <div id="panel-skills" role="tabpanel" aria-labelledby="tab-skills" className="space-y-6">
           <Card>
             <h2 className="mb-2 text-lg font-semibold text-gray-900">
               Skills & Programs
@@ -334,14 +573,15 @@ export default function SettingsPage() {
                   }
                 }}
                 className="flex-1"
+                aria-label="New skill name"
               />
               <Button onClick={addSkill} disabled={!newSkillName.trim()}>
-                <Plus className="mr-1 h-4 w-4" />
+                <Plus className="mr-1 h-4 w-4" aria-hidden="true" />
                 Add
               </Button>
             </div>
             {skillError && (
-              <p className="mt-2 text-sm text-red-600">{skillError}</p>
+              <p role="alert" className="mt-2 text-sm text-red-600">{skillError}</p>
             )}
           </Card>
 
@@ -351,7 +591,7 @@ export default function SettingsPage() {
             </h3>
             {loadingSkills ? (
               <div className="flex justify-center py-8">
-                <div className="h-6 w-6 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+                <div className="h-6 w-6 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" role="status" aria-label="Loading skills" />
               </div>
             ) : skills.length === 0 ? (
               <p className="py-3 text-center text-sm text-gray-400">
@@ -368,7 +608,7 @@ export default function SettingsPage() {
                     <button
                       onClick={() => deleteSkill(skill)}
                       className="ml-1 rounded-full p-0.5 opacity-0 transition-opacity hover:bg-white/50 group-hover:opacity-100"
-                      title="Delete skill"
+                      aria-label={`Delete ${skill.name} skill`}
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -382,7 +622,7 @@ export default function SettingsPage() {
 
       {/* Roles Tab */}
       {activeTab === "roles" && (
-        <div className="space-y-6">
+        <div id="panel-roles" role="tabpanel" aria-labelledby="tab-roles" className="space-y-6">
           <Card>
             <h2 className="mb-2 text-lg font-semibold text-gray-900">Roles</h2>
             <p className="mb-4 text-sm text-gray-500">
@@ -404,14 +644,15 @@ export default function SettingsPage() {
                   }
                 }}
                 className="flex-1"
+                aria-label="New role name"
               />
               <Button onClick={addRole} disabled={!newRoleName.trim()}>
-                <Plus className="mr-1 h-4 w-4" />
+                <Plus className="mr-1 h-4 w-4" aria-hidden="true" />
                 Add
               </Button>
             </div>
             {roleError && (
-              <p className="mt-2 text-sm text-red-600">{roleError}</p>
+              <p role="alert" className="mt-2 text-sm text-red-600">{roleError}</p>
             )}
           </Card>
 
@@ -421,7 +662,7 @@ export default function SettingsPage() {
             </h3>
             {loadingRoles ? (
               <div className="flex justify-center py-8">
-                <div className="h-6 w-6 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+                <div className="h-6 w-6 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" role="status" aria-label="Loading roles" />
               </div>
             ) : roles.length === 0 ? (
               <p className="py-3 text-center text-sm text-gray-400">
@@ -434,12 +675,12 @@ export default function SettingsPage() {
                     key={role.id}
                     className="group flex items-center gap-1 rounded-full bg-purple-50 px-3 py-1.5 text-sm text-purple-700"
                   >
-                    <Shield className="h-3.5 w-3.5" />
+                    <Shield className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>{role.name}</span>
                     <button
                       onClick={() => deleteRole(role)}
                       className="ml-1 rounded-full p-0.5 opacity-0 transition-opacity hover:bg-white/50 group-hover:opacity-100"
-                      title="Delete role"
+                      aria-label={`Delete ${role.name} role`}
                     >
                       <X className="h-3 w-3" />
                     </button>
