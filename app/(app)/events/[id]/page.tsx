@@ -431,7 +431,13 @@ export default function EventDetailPage() {
                   <span className="w-8" />
                 </div>
                 <div className="space-y-1.5">
-                  {eventVolunteers.map((ev) => {
+                  {[...eventVolunteers]
+                    .sort((a, b) => {
+                      const aHasRole = a.notes ? 1 : 0;
+                      const bHasRole = b.notes ? 1 : 0;
+                      return bHasRole - aHasRole;
+                    })
+                    .map((ev) => {
                     const hasEdits =
                       hoursEdits[ev.id] !== undefined &&
                       hoursEdits[ev.id] !== ev.hours_logged.toString();
@@ -440,12 +446,17 @@ export default function EventDetailPage() {
                         key={ev.id}
                         className="grid grid-cols-[1fr_auto_auto] items-center gap-2 rounded-lg border border-gray-100 px-3 py-2"
                       >
-                        <Link
-                          href={`/volunteers`}
-                          className="text-sm font-medium text-blue-600 hover:text-blue-800"
-                        >
-                          {ev.volunteers.first_name} {ev.volunteers.last_name}
-                        </Link>
+                        <div>
+                          <Link
+                            href={`/volunteers`}
+                            className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                          >
+                            {ev.volunteers.first_name} {ev.volunteers.last_name}
+                          </Link>
+                          {ev.notes && (
+                            <p className="text-xs text-gray-500">{ev.notes}</p>
+                          )}
+                        </div>
                         <div className="flex w-20 items-center gap-1">
                           <input
                             type="number"
