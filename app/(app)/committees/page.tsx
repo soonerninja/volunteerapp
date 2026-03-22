@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { VolunteerSearchSelect } from "@/components/ui/volunteer-search-select";
 import type { Committee, Volunteer } from "@/types/database";
 import {
   UsersRound,
@@ -14,8 +15,6 @@ import {
   X,
   Edit2,
   Trash2,
-  UserPlus,
-  ChevronDown,
   Users,
 } from "lucide-react";
 
@@ -46,7 +45,6 @@ export default function CommitteesPage() {
   const [selectedCommittee, setSelectedCommittee] =
     useState<CommitteeWithCount | null>(null);
   const [members, setMembers] = useState<CommitteeMember[]>([]);
-  const [assignVolunteerId, setAssignVolunteerId] = useState("");
 
   const [form, setForm] = useState({ name: "", description: "" });
 
@@ -188,13 +186,13 @@ export default function CommitteesPage() {
     setMembers((data as unknown as CommitteeMember[]) || []);
   };
 
-  const assignMember = async () => {
-    if (!assignVolunteerId || !selectedCommittee) return;
+  const assignMember = async (vol: Volunteer) => {
+    if (!selectedCommittee) return;
 
     const { error: assignErr } = await supabase
       .from("volunteer_committees")
       .insert({
-        volunteer_id: assignVolunteerId,
+        volunteer_id: vol.id,
         committee_id: selectedCommittee.id,
       });
 
@@ -203,7 +201,6 @@ export default function CommitteesPage() {
       return;
     }
 
-    setAssignVolunteerId("");
     openMembersPanel(selectedCommittee);
     fetchCommittees();
   };
@@ -220,9 +217,6 @@ export default function CommitteesPage() {
   };
 
   const assignedMemberIds = members.map((m) => m.volunteer_id);
-  const unassignedVolunteers = volunteers.filter(
-    (v) => !assignedMemberIds.includes(v.id)
-  );
 
   return (
     <div className="space-y-6">
@@ -234,7 +228,7 @@ export default function CommitteesPage() {
         </Button>
       </div>
 
-      {/* Create/Edit Form Modal */}
+      {/* Create/Edit Form Modal - simple form, ok as modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <Card className="w-full max-w-md">
@@ -250,7 +244,7 @@ export default function CommitteesPage() {
               </button>
             </div>
 
-            {error && (
+            {error && !selectedCommittee && (
               <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
                 {error}
               </div>
@@ -294,7 +288,7 @@ export default function CommitteesPage() {
         </div>
       )}
 
-      {/* Members Panel Modal */}
+      {/* Members Panel - keep as modal since it's a quick management task */}
       {selectedCommittee && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto">
@@ -315,37 +309,23 @@ export default function CommitteesPage() {
               </button>
             </div>
 
-            {error && (
+            {error && selectedCommittee && (
               <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
                 {error}
               </div>
             )}
 
-            {/* Assign new member */}
-            <div className="mb-4 flex gap-2">
-              <div className="relative flex-1">
-                <select
-                  value={assignVolunteerId}
-                  onChange={(e) => setAssignVolunteerId(e.target.value)}
-                  className="block w-full appearance-none rounded-lg border border-gray-300 bg-white px-3 py-2 pr-8 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value="">Select volunteer to add...</option>
-                  {unassignedVolunteers.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.first_name} {v.last_name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              </div>
-              <Button
-                onClick={assignMember}
-                disabled={!assignVolunteerId}
-                size="sm"
-              >
-                <UserPlus className="mr-1 h-4 w-4" />
-                Add
-              </Button>
+            {/* Searchable volunteer selector */}
+            <div className="mb-4">
+              <p className="mb-1.5 text-xs font-medium text-gray-500">
+                Add Member
+              </p>
+              <VolunteerSearchSelect
+                volunteers={volunteers}
+                excludeIds={assignedMemberIds}
+                onSelect={assignMember}
+                placeholder="Search volunteers to add..."
+              />
             </div>
 
             {/* Members list */}
@@ -353,7 +333,7 @@ export default function CommitteesPage() {
               <EmptyState
                 icon={Users}
                 title="No members yet"
-                description="Add volunteers to this committee using the dropdown above."
+                description="Search and add volunteers to this committee."
               />
             ) : (
               <div className="space-y-2">
