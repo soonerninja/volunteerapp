@@ -40,16 +40,22 @@ export interface Volunteer {
   updated_at: string;
 }
 
+export type SkillCategory = "skill" | "certification" | "interest";
+
 export interface Skill {
   id: string;
   org_id: string;
   name: string;
+  category: SkillCategory;
   created_at: string;
 }
 
 export interface VolunteerSkill {
   volunteer_id: string;
   skill_id: string;
+  earned_date: string | null;
+  expires_date: string | null;
+  notes: string | null;
 }
 
 export interface Committee {

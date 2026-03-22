@@ -6,17 +6,19 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import type { Organization, Profile, Skill } from "@/types/database";
+import type { Organization, Profile, Skill, SkillCategory } from "@/types/database";
 import {
-  Settings,
   Building2,
   Users,
   Tag,
   Plus,
   X,
-  Trash2,
   Save,
   Shield,
+  Award,
+  Lightbulb,
+  Wrench,
+  ChevronDown,
 } from "lucide-react";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -25,6 +27,38 @@ const ROLE_LABELS: Record<string, string> = {
   editor: "Editor",
   viewer: "Viewer",
 };
+
+const CATEGORY_CONFIG: Record<
+  SkillCategory,
+  { label: string; plural: string; icon: typeof Tag; color: string; bgColor: string; description: string }
+> = {
+  skill: {
+    label: "Skill",
+    plural: "Skills",
+    icon: Wrench,
+    color: "text-blue-700",
+    bgColor: "bg-blue-50",
+    description: "What volunteers are good at (e.g., Grant Writing, Marketing, Bilingual)",
+  },
+  certification: {
+    label: "Certification",
+    plural: "Certifications",
+    icon: Award,
+    color: "text-purple-700",
+    bgColor: "bg-purple-50",
+    description: "Trainings and credentials (e.g., TSL Presenter, SafeTALK, CPR). Supports earned/expiration dates when assigned.",
+  },
+  interest: {
+    label: "Interest",
+    plural: "Interests",
+    icon: Lightbulb,
+    color: "text-green-700",
+    bgColor: "bg-green-50",
+    description: "What volunteers want to do (e.g., Event Planning, Youth Outreach, Fundraising)",
+  },
+};
+
+const CATEGORIES: SkillCategory[] = ["skill", "certification", "interest"];
 
 export default function SettingsPage() {
   const { profile, refreshProfile } = useAuth();
@@ -48,6 +82,7 @@ export default function SettingsPage() {
   // Skills
   const [skills, setSkills] = useState<Skill[]>([]);
   const [newSkillName, setNewSkillName] = useState("");
+  const [newSkillCategory, setNewSkillCategory] = useState<SkillCategory>("skill");
   const [loadingSkills, setLoadingSkills] = useState(true);
   const [skillError, setSkillError] = useState("");
 
@@ -125,12 +160,16 @@ export default function SettingsPage() {
     setSkillError("");
     const { error } = await supabase
       .from("skills")
-      .insert({ org_id: orgId, name: newSkillName.trim() });
+      .insert({
+        org_id: orgId,
+        name: newSkillName.trim(),
+        category: newSkillCategory,
+      });
 
     if (error) {
       setSkillError(
         error.message.includes("duplicate")
-          ? "This skill already exists."
+          ? "This item already exists."
           : error.message
       );
       return;
@@ -140,15 +179,26 @@ export default function SettingsPage() {
   };
 
   const deleteSkill = async (skill: Skill) => {
-    if (!confirm(`Delete "${skill.name}" skill?`)) return;
+    const config = CATEGORY_CONFIG[skill.category];
+    if (!confirm(`Delete "${skill.name}" ${config.label.toLowerCase()}?`))
+      return;
     await supabase.from("skills").delete().eq("id", skill.id);
     fetchSkills();
   };
 
+  // Group skills by category
+  const skillsByCategory = CATEGORIES.reduce(
+    (acc, cat) => {
+      acc[cat] = skills.filter((s) => s.category === cat);
+      return acc;
+    },
+    {} as Record<SkillCategory, Skill[]>
+  );
+
   const tabs = [
     { id: "organization" as const, label: "Organization", icon: Building2 },
     { id: "team" as const, label: "Team", icon: Users },
-    { id: "skills" as const, label: "Skills / Tags", icon: Tag },
+    { id: "skills" as const, label: "Skills & Certs", icon: Tag },
   ];
 
   return (
@@ -198,7 +248,8 @@ export default function SettingsPage() {
                   </span>
                 </div>
                 <p className="text-sm text-gray-500">
-                  Slug: <span className="font-mono text-gray-700">{org.slug}</span>
+                  Slug:{" "}
+                  <span className="font-mono text-gray-700">{org.slug}</span>
                 </p>
               </div>
             )}
@@ -254,70 +305,115 @@ export default function SettingsPage() {
         </Card>
       )}
 
-      {/* Skills Tab */}
+      {/* Skills & Certs Tab */}
       {activeTab === "skills" && (
-        <Card>
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            Skills / Tags
-          </h2>
-          <p className="mb-4 text-sm text-gray-500">
-            Define skills and tags that can be assigned to volunteers.
-          </p>
+        <div className="space-y-6">
+          {/* Add new skill/cert/interest */}
+          <Card>
+            <h2 className="mb-2 text-lg font-semibold text-gray-900">
+              Add New
+            </h2>
+            <p className="mb-4 text-sm text-gray-500">
+              Define skills, certifications, and interests that can be assigned
+              to volunteers.
+            </p>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="relative">
+                <select
+                  value={newSkillCategory}
+                  onChange={(e) =>
+                    setNewSkillCategory(e.target.value as SkillCategory)
+                  }
+                  className="block w-full appearance-none rounded-lg border border-gray-300 bg-white px-3 py-2 pr-8 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:w-44"
+                >
+                  {CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {CATEGORY_CONFIG[cat].label}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              </div>
+              <Input
+                placeholder={`New ${CATEGORY_CONFIG[newSkillCategory].label.toLowerCase()} name...`}
+                value={newSkillName}
+                onChange={(e) => {
+                  setNewSkillName(e.target.value);
+                  setSkillError("");
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addSkill();
+                  }
+                }}
+                className="flex-1"
+              />
+              <Button onClick={addSkill} disabled={!newSkillName.trim()}>
+                <Plus className="mr-1 h-4 w-4" />
+                Add
+              </Button>
+            </div>
+            {skillError && (
+              <p className="mt-2 text-sm text-red-600">{skillError}</p>
+            )}
+          </Card>
 
-          {/* Add skill */}
-          <div className="mb-4 flex gap-2">
-            <Input
-              placeholder="New skill name..."
-              value={newSkillName}
-              onChange={(e) => {
-                setNewSkillName(e.target.value);
-                setSkillError("");
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  addSkill();
-                }
-              }}
-            />
-            <Button onClick={addSkill} disabled={!newSkillName.trim()}>
-              <Plus className="mr-1 h-4 w-4" />
-              Add
-            </Button>
-          </div>
-
-          {skillError && (
-            <p className="mb-3 text-sm text-red-600">{skillError}</p>
-          )}
-
+          {/* Skills grouped by category */}
           {loadingSkills ? (
             <div className="flex justify-center py-8">
               <div className="h-6 w-6 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
             </div>
-          ) : skills.length === 0 ? (
-            <p className="py-4 text-center text-sm text-gray-500">
-              No skills defined yet. Add your first skill above.
-            </p>
           ) : (
-            <div className="flex flex-wrap gap-2">
-              {skills.map((skill) => (
-                <div
-                  key={skill.id}
-                  className="group flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1.5 text-sm text-blue-700"
-                >
-                  <span>{skill.name}</span>
-                  <button
-                    onClick={() => deleteSkill(skill)}
-                    className="ml-1 rounded-full p-0.5 opacity-0 transition-opacity hover:bg-blue-100 group-hover:opacity-100"
-                    title="Delete skill"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
+            CATEGORIES.map((cat) => {
+              const config = CATEGORY_CONFIG[cat];
+              const items = skillsByCategory[cat];
+              const Icon = config.icon;
+
+              return (
+                <Card key={cat}>
+                  <div className="mb-3 flex items-center gap-2">
+                    <div className={`rounded-lg ${config.bgColor} p-2`}>
+                      <Icon className={`h-4 w-4 ${config.color}`} />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900">
+                        {config.plural}
+                      </h3>
+                      <p className="text-xs text-gray-500">
+                        {config.description}
+                      </p>
+                    </div>
+                  </div>
+
+                  {items.length === 0 ? (
+                    <p className="py-3 text-center text-sm text-gray-400">
+                      No {config.plural.toLowerCase()} defined yet.
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {items.map((skill) => (
+                        <div
+                          key={skill.id}
+                          className={`group flex items-center gap-1 rounded-full ${config.bgColor} px-3 py-1.5 text-sm ${config.color}`}
+                        >
+                          <span>{skill.name}</span>
+                          <button
+                            onClick={() => deleteSkill(skill)}
+                            className="ml-1 rounded-full p-0.5 opacity-0 transition-opacity hover:bg-white/50 group-hover:opacity-100"
+                            title={`Delete ${config.label.toLowerCase()}`}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+              );
+            })
           )}
-        </Card>
+        </div>
       )}
     </div>
   );
