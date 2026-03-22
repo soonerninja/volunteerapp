@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatDate } from "@/utils/format";
-import type { Volunteer, Skill, SkillCategory } from "@/types/database";
+import type { Volunteer, Skill, Role } from "@/types/database";
 import {
   Users,
   Plus,
@@ -19,22 +19,12 @@ import {
   Trash2,
   Phone,
   Mail,
-  Award,
-  Lightbulb,
-  Wrench,
-  AlertTriangle,
+  Shield,
 } from "lucide-react";
 
-type VolunteerSkillAssignment = {
-  skill_id: string;
-  earned_date: string | null;
-  expires_date: string | null;
-  notes: string | null;
-  skill: Skill;
-};
-
-type VolunteerWithSkills = Volunteer & {
-  skillAssignments: VolunteerSkillAssignment[];
+type VolunteerWithDetails = Volunteer & {
+  skillIds: string[];
+  roleIds: string[];
 };
 
 const STATUS_OPTIONS = [
@@ -50,36 +40,20 @@ const STATUS_COLORS: Record<string, string> = {
   on_leave: "bg-amber-100 text-amber-700",
 };
 
-const CATEGORY_BADGE: Record<
-  SkillCategory,
-  { color: string; icon: typeof Wrench }
-> = {
-  skill: { color: "bg-blue-50 text-blue-600", icon: Wrench },
-  certification: { color: "bg-purple-50 text-purple-600", icon: Award },
-  interest: { color: "bg-green-50 text-green-600", icon: Lightbulb },
-};
-
-const CATEGORY_LABELS: Record<SkillCategory, string> = {
-  skill: "Skills",
-  certification: "Certifications",
-  interest: "Interests",
-};
-
-const CATEGORIES: SkillCategory[] = ["skill", "certification", "interest"];
-
 export default function VolunteersPage() {
   const { profile } = useAuth();
   const supabase = createClient();
   const orgId = profile?.org_id;
 
-  const [volunteers, setVolunteers] = useState<VolunteerWithSkills[]>([]);
+  const [volunteers, setVolunteers] = useState<VolunteerWithDetails[]>([]);
   const [skills, setSkills] = useState<Skill[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingVolunteer, setEditingVolunteer] =
-    useState<VolunteerWithSkills | null>(null);
+    useState<VolunteerWithDetails | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -92,11 +66,8 @@ export default function VolunteersPage() {
     status: "active" as string,
     notes: "",
     joined_date: new Date().toISOString().split("T")[0],
-    // Skill assignments: skill_id -> { selected, earned_date, expires_date }
-    skillSelections: {} as Record<
-      string,
-      { selected: boolean; earned_date: string; expires_date: string }
-    >,
+    selectedSkills: {} as Record<string, boolean>,
+    selectedRoles: {} as Record<string, boolean>,
   });
 
   const fetchVolunteers = useCallback(async () => {
@@ -110,43 +81,37 @@ export default function VolunteersPage() {
       .order("last_name", { ascending: true });
 
     const volIds = (vols || []).map((v) => v.id);
-    let volSkills: VolunteerSkillAssignment[] = [];
-    if (volIds.length > 0) {
-      const { data } = await supabase
-        .from("volunteer_skills")
-        .select(
-          "volunteer_id, skill_id, earned_date, expires_date, notes, skills(id, name, org_id, category, created_at)"
-        )
-        .in("volunteer_id", volIds);
+    let volSkills: { volunteer_id: string; skill_id: string }[] = [];
+    let volRoles: { volunteer_id: string; role_id: string }[] = [];
 
-      volSkills = (data || []).map((vs) => ({
-        ...vs,
-        skill: vs.skills as unknown as Skill,
-      })) as unknown as (VolunteerSkillAssignment & {
-        volunteer_id: string;
-      })[];
+    if (volIds.length > 0) {
+      const [skillsRes, rolesRes] = await Promise.all([
+        supabase
+          .from("volunteer_skills")
+          .select("volunteer_id, skill_id")
+          .in("volunteer_id", volIds),
+        supabase
+          .from("volunteer_roles")
+          .select("volunteer_id, role_id")
+          .in("volunteer_id", volIds),
+      ]);
+      volSkills = skillsRes.data || [];
+      volRoles = rolesRes.data || [];
     }
 
-    const volunteersWithSkills: VolunteerWithSkills[] = (vols || []).map(
+    const volunteersWithDetails: VolunteerWithDetails[] = (vols || []).map(
       (v) => ({
         ...v,
-        skillAssignments: (
-          volSkills as unknown as (VolunteerSkillAssignment & {
-            volunteer_id: string;
-          })[]
-        )
+        skillIds: volSkills
           .filter((vs) => vs.volunteer_id === v.id)
-          .map((vs) => ({
-            skill_id: vs.skill_id,
-            earned_date: vs.earned_date,
-            expires_date: vs.expires_date,
-            notes: vs.notes,
-            skill: vs.skill,
-          })),
+          .map((vs) => vs.skill_id),
+        roleIds: volRoles
+          .filter((vr) => vr.volunteer_id === v.id)
+          .map((vr) => vr.role_id),
       })
     );
 
-    setVolunteers(volunteersWithSkills);
+    setVolunteers(volunteersWithDetails);
     setLoading(false);
   }, [orgId, supabase]);
 
@@ -160,10 +125,21 @@ export default function VolunteersPage() {
     setSkills(data || []);
   }, [orgId, supabase]);
 
+  const fetchRoles = useCallback(async () => {
+    if (!orgId) return;
+    const { data } = await supabase
+      .from("roles")
+      .select("*")
+      .eq("org_id", orgId)
+      .order("name");
+    setRoles(data || []);
+  }, [orgId, supabase]);
+
   useEffect(() => {
     fetchVolunteers();
     fetchSkills();
-  }, [fetchVolunteers, fetchSkills]);
+    fetchRoles();
+  }, [fetchVolunteers, fetchSkills, fetchRoles]);
 
   const resetForm = () => {
     setForm({
@@ -174,25 +150,23 @@ export default function VolunteersPage() {
       status: "active",
       notes: "",
       joined_date: new Date().toISOString().split("T")[0],
-      skillSelections: {},
+      selectedSkills: {},
+      selectedRoles: {},
     });
     setEditingVolunteer(null);
     setShowForm(false);
     setError("");
   };
 
-  const openEdit = (vol: VolunteerWithSkills) => {
+  const openEdit = (vol: VolunteerWithDetails) => {
     setEditingVolunteer(vol);
-    const skillSelections: Record<
-      string,
-      { selected: boolean; earned_date: string; expires_date: string }
-    > = {};
-    vol.skillAssignments.forEach((sa) => {
-      skillSelections[sa.skill_id] = {
-        selected: true,
-        earned_date: sa.earned_date || "",
-        expires_date: sa.expires_date || "",
-      };
+    const selectedSkills: Record<string, boolean> = {};
+    vol.skillIds.forEach((id) => {
+      selectedSkills[id] = true;
+    });
+    const selectedRoles: Record<string, boolean> = {};
+    vol.roleIds.forEach((id) => {
+      selectedRoles[id] = true;
     });
     setForm({
       first_name: vol.first_name,
@@ -202,46 +176,11 @@ export default function VolunteersPage() {
       status: vol.status,
       notes: vol.notes || "",
       joined_date: vol.joined_date || "",
-      skillSelections,
+      selectedSkills,
+      selectedRoles,
     });
     setShowForm(true);
     setError("");
-  };
-
-  const toggleSkill = (skillId: string) => {
-    setForm((prev) => {
-      const current = prev.skillSelections[skillId];
-      return {
-        ...prev,
-        skillSelections: {
-          ...prev.skillSelections,
-          [skillId]: current?.selected
-            ? { selected: false, earned_date: "", expires_date: "" }
-            : {
-                selected: true,
-                earned_date: current?.earned_date || "",
-                expires_date: current?.expires_date || "",
-              },
-        },
-      };
-    });
-  };
-
-  const updateSkillDate = (
-    skillId: string,
-    field: "earned_date" | "expires_date",
-    value: string
-  ) => {
-    setForm((prev) => ({
-      ...prev,
-      skillSelections: {
-        ...prev.skillSelections,
-        [skillId]: {
-          ...prev.skillSelections[skillId],
-          [field]: value,
-        },
-      },
-    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -276,11 +215,17 @@ export default function VolunteersPage() {
       }
       volunteerId = editingVolunteer.id;
 
-      // Remove old skills
-      await supabase
-        .from("volunteer_skills")
-        .delete()
-        .eq("volunteer_id", volunteerId);
+      // Remove old skills and roles
+      await Promise.all([
+        supabase
+          .from("volunteer_skills")
+          .delete()
+          .eq("volunteer_id", volunteerId),
+        supabase
+          .from("volunteer_roles")
+          .delete()
+          .eq("volunteer_id", volunteerId),
+      ]);
 
       await supabase.from("audit_log").insert({
         org_id: orgId,
@@ -314,19 +259,30 @@ export default function VolunteersPage() {
       });
     }
 
-    // Insert selected skills with dates
-    const selectedSkills = Object.entries(form.skillSelections)
-      .filter(([, val]) => val.selected)
-      .map(([skillId, val]) => ({
+    // Insert selected skills
+    const selectedSkillIds = Object.entries(form.selectedSkills)
+      .filter(([, selected]) => selected)
+      .map(([skillId]) => ({
         volunteer_id: volunteerId,
         skill_id: skillId,
-        earned_date: val.earned_date || null,
-        expires_date: val.expires_date || null,
       }));
 
-    if (selectedSkills.length > 0) {
-      await supabase.from("volunteer_skills").insert(selectedSkills);
-    }
+    // Insert selected roles
+    const selectedRoleIds = Object.entries(form.selectedRoles)
+      .filter(([, selected]) => selected)
+      .map(([roleId]) => ({
+        volunteer_id: volunteerId,
+        role_id: roleId,
+      }));
+
+    await Promise.all([
+      selectedSkillIds.length > 0
+        ? supabase.from("volunteer_skills").insert(selectedSkillIds)
+        : Promise.resolve(),
+      selectedRoleIds.length > 0
+        ? supabase.from("volunteer_roles").insert(selectedRoleIds)
+        : Promise.resolve(),
+    ]);
 
     setSaving(false);
     resetForm();
@@ -360,28 +316,9 @@ export default function VolunteersPage() {
     return matchesSearch && matchesStatus;
   });
 
-  // Check if a certification is expiring within 30 days
-  const isExpiringSoon = (expiresDate: string | null): boolean => {
-    if (!expiresDate) return false;
-    const expires = new Date(expiresDate);
-    const now = new Date();
-    const thirtyDays = 30 * 24 * 60 * 60 * 1000;
-    return expires.getTime() - now.getTime() < thirtyDays && expires >= now;
-  };
-
-  const isExpired = (expiresDate: string | null): boolean => {
-    if (!expiresDate) return false;
-    return new Date(expiresDate) < new Date();
-  };
-
-  // Group skills by category for the form
-  const skillsByCategory = CATEGORIES.reduce(
-    (acc, cat) => {
-      acc[cat] = skills.filter((s) => s.category === cat);
-      return acc;
-    },
-    {} as Record<SkillCategory, Skill[]>
-  );
+  // Map skill/role IDs to names for display
+  const skillMap = new Map(skills.map((s) => [s.id, s.name]));
+  const roleMap = new Map(roles.map((r) => [r.id, r.name]));
 
   return (
     <div className="space-y-6">
@@ -507,84 +444,71 @@ export default function VolunteersPage() {
                 }
               />
 
-              {/* Categorized skill selection */}
-              {CATEGORIES.map((cat) => {
-                const catSkills = skillsByCategory[cat];
-                if (catSkills.length === 0) return null;
-                const config = CATEGORY_BADGE[cat];
-                const Icon = config.icon;
-
-                return (
-                  <div key={cat}>
-                    <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-gray-700">
-                      <Icon className="h-3.5 w-3.5" />
-                      {CATEGORY_LABELS[cat]}
-                    </label>
-                    <div className="space-y-2">
-                      {catSkills.map((skill) => {
-                        const sel = form.skillSelections[skill.id];
-                        const isSelected = sel?.selected;
-                        const isCert = cat === "certification";
-
-                        return (
-                          <div key={skill.id}>
-                            <button
-                              type="button"
-                              onClick={() => toggleSkill(skill.id)}
-                              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                                isSelected
-                                  ? config.color
-                                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                              }`}
-                            >
-                              {skill.name}
-                            </button>
-                            {/* Show date fields for selected certifications */}
-                            {isSelected && isCert && (
-                              <div className="mt-1.5 ml-2 flex gap-2">
-                                <div className="flex-1">
-                                  <label className="mb-0.5 block text-xs text-gray-500">
-                                    Earned
-                                  </label>
-                                  <input
-                                    type="date"
-                                    value={sel?.earned_date || ""}
-                                    onChange={(e) =>
-                                      updateSkillDate(
-                                        skill.id,
-                                        "earned_date",
-                                        e.target.value
-                                      )
-                                    }
-                                    className="w-full rounded border border-gray-200 px-2 py-1 text-xs"
-                                  />
-                                </div>
-                                <div className="flex-1">
-                                  <label className="mb-0.5 block text-xs text-gray-500">
-                                    Expires
-                                  </label>
-                                  <input
-                                    type="date"
-                                    value={sel?.expires_date || ""}
-                                    onChange={(e) =>
-                                      updateSkillDate(
-                                        skill.id,
-                                        "expires_date",
-                                        e.target.value
-                                      )
-                                    }
-                                    className="w-full rounded border border-gray-200 px-2 py-1 text-xs"
-                                  />
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
+              {/* Skills - simple checkboxes like the original */}
+              {skills.length > 0 && (
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                    Skills & Programs
+                  </label>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                    {skills.map((skill) => (
+                      <label
+                        key={skill.id}
+                        className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={!!form.selectedSkills[skill.id]}
+                          onChange={() =>
+                            setForm((prev) => ({
+                              ...prev,
+                              selectedSkills: {
+                                ...prev.selectedSkills,
+                                [skill.id]: !prev.selectedSkills[skill.id],
+                              },
+                            }))
+                          }
+                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        {skill.name}
+                      </label>
+                    ))}
                   </div>
-                );
-              })}
+                </div>
+              )}
+
+              {/* Roles */}
+              {roles.length > 0 && (
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                    Roles
+                  </label>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                    {roles.map((role) => (
+                      <label
+                        key={role.id}
+                        className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={!!form.selectedRoles[role.id]}
+                          onChange={() =>
+                            setForm((prev) => ({
+                              ...prev,
+                              selectedRoles: {
+                                ...prev.selectedRoles,
+                                [role.id]: !prev.selectedRoles[role.id],
+                              },
+                            }))
+                          }
+                          className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                        />
+                        {role.name}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label
@@ -644,16 +568,12 @@ export default function VolunteersPage() {
       ) : (
         <div className="space-y-3">
           {filtered.map((vol) => {
-            // Group this volunteer's skills by category
-            const volSkillsByCategory = CATEGORIES.reduce(
-              (acc, cat) => {
-                acc[cat] = vol.skillAssignments.filter(
-                  (sa) => sa.skill?.category === cat
-                );
-                return acc;
-              },
-              {} as Record<SkillCategory, VolunteerSkillAssignment[]>
-            );
+            const volSkillNames = vol.skillIds
+              .map((id) => skillMap.get(id))
+              .filter(Boolean);
+            const volRoleNames = vol.roleIds
+              .map((id) => roleMap.get(id))
+              .filter(Boolean);
 
             return (
               <Card key={vol.id} padding="sm">
@@ -690,60 +610,32 @@ export default function VolunteersPage() {
                       )}
                     </div>
 
-                    {/* Categorized skill badges */}
-                    {vol.skillAssignments.length > 0 && (
-                      <div className="mt-2 space-y-1">
-                        {CATEGORIES.map((cat) => {
-                          const assignments = volSkillsByCategory[cat];
-                          if (assignments.length === 0) return null;
-                          const badgeConfig = CATEGORY_BADGE[cat];
+                    {/* Roles */}
+                    {volRoleNames.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {volRoleNames.map((name) => (
+                          <span
+                            key={name}
+                            className="inline-flex items-center gap-1 rounded-full bg-purple-50 px-2 py-0.5 text-xs text-purple-700"
+                          >
+                            <Shield className="h-3 w-3" />
+                            {name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
 
-                          return (
-                            <div
-                              key={cat}
-                              className="flex flex-wrap items-center gap-1"
-                            >
-                              {assignments.map((sa) => {
-                                const expired = isExpired(sa.expires_date);
-                                const expiring = isExpiringSoon(
-                                  sa.expires_date
-                                );
-                                let badgeClass = badgeConfig.color;
-                                if (expired)
-                                  badgeClass =
-                                    "bg-red-50 text-red-600 line-through";
-                                else if (expiring)
-                                  badgeClass = "bg-amber-50 text-amber-700";
-
-                                return (
-                                  <span
-                                    key={sa.skill_id}
-                                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${badgeClass}`}
-                                    title={
-                                      cat === "certification"
-                                        ? [
-                                            sa.earned_date &&
-                                              `Earned: ${formatDate(sa.earned_date)}`,
-                                            sa.expires_date &&
-                                              `Expires: ${formatDate(sa.expires_date)}`,
-                                            expired && "EXPIRED",
-                                            expiring && "Expiring soon",
-                                          ]
-                                            .filter(Boolean)
-                                            .join(" | ") || undefined
-                                        : undefined
-                                    }
-                                  >
-                                    {(expired || expiring) && (
-                                      <AlertTriangle className="h-3 w-3" />
-                                    )}
-                                    {sa.skill?.name}
-                                  </span>
-                                );
-                              })}
-                            </div>
-                          );
-                        })}
+                    {/* Skills */}
+                    {volSkillNames.length > 0 && (
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {volSkillNames.map((name) => (
+                          <span
+                            key={name}
+                            className="rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-600"
+                          >
+                            {name}
+                          </span>
+                        ))}
                       </div>
                     )}
                   </div>

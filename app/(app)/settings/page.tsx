@@ -6,19 +6,15 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import type { Organization, Profile, Skill, SkillCategory } from "@/types/database";
+import type { Organization, Profile, Skill, Role } from "@/types/database";
 import {
   Building2,
   Users,
   Tag,
+  Shield,
   Plus,
   X,
   Save,
-  Shield,
-  Award,
-  Lightbulb,
-  Wrench,
-  ChevronDown,
 } from "lucide-react";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -28,45 +24,13 @@ const ROLE_LABELS: Record<string, string> = {
   viewer: "Viewer",
 };
 
-const CATEGORY_CONFIG: Record<
-  SkillCategory,
-  { label: string; plural: string; icon: typeof Tag; color: string; bgColor: string; description: string }
-> = {
-  skill: {
-    label: "Skill",
-    plural: "Skills",
-    icon: Wrench,
-    color: "text-blue-700",
-    bgColor: "bg-blue-50",
-    description: "What volunteers are good at (e.g., Grant Writing, Marketing, Bilingual)",
-  },
-  certification: {
-    label: "Certification",
-    plural: "Certifications",
-    icon: Award,
-    color: "text-purple-700",
-    bgColor: "bg-purple-50",
-    description: "Trainings and credentials (e.g., TSL Presenter, SafeTALK, CPR). Supports earned/expiration dates when assigned.",
-  },
-  interest: {
-    label: "Interest",
-    plural: "Interests",
-    icon: Lightbulb,
-    color: "text-green-700",
-    bgColor: "bg-green-50",
-    description: "What volunteers want to do (e.g., Event Planning, Youth Outreach, Fundraising)",
-  },
-};
-
-const CATEGORIES: SkillCategory[] = ["skill", "certification", "interest"];
-
 export default function SettingsPage() {
   const { profile, refreshProfile } = useAuth();
   const supabase = createClient();
   const orgId = profile?.org_id;
 
   const [activeTab, setActiveTab] = useState<
-    "organization" | "team" | "skills"
+    "organization" | "team" | "skills" | "roles"
   >("organization");
 
   // Org settings
@@ -82,9 +46,14 @@ export default function SettingsPage() {
   // Skills
   const [skills, setSkills] = useState<Skill[]>([]);
   const [newSkillName, setNewSkillName] = useState("");
-  const [newSkillCategory, setNewSkillCategory] = useState<SkillCategory>("skill");
   const [loadingSkills, setLoadingSkills] = useState(true);
   const [skillError, setSkillError] = useState("");
+
+  // Roles
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [newRoleName, setNewRoleName] = useState("");
+  const [loadingRoles, setLoadingRoles] = useState(true);
+  const [roleError, setRoleError] = useState("");
 
   const fetchOrg = useCallback(async () => {
     if (!orgId) return;
@@ -123,11 +92,24 @@ export default function SettingsPage() {
     setLoadingSkills(false);
   }, [orgId, supabase]);
 
+  const fetchRoles = useCallback(async () => {
+    if (!orgId) return;
+    setLoadingRoles(true);
+    const { data } = await supabase
+      .from("roles")
+      .select("*")
+      .eq("org_id", orgId)
+      .order("name");
+    setRoles(data || []);
+    setLoadingRoles(false);
+  }, [orgId, supabase]);
+
   useEffect(() => {
     fetchOrg();
     fetchTeam();
     fetchSkills();
-  }, [fetchOrg, fetchTeam, fetchSkills]);
+    fetchRoles();
+  }, [fetchOrg, fetchTeam, fetchSkills, fetchRoles]);
 
   const saveOrgName = async () => {
     if (!orgId || !profile || !orgName.trim()) return;
@@ -160,16 +142,12 @@ export default function SettingsPage() {
     setSkillError("");
     const { error } = await supabase
       .from("skills")
-      .insert({
-        org_id: orgId,
-        name: newSkillName.trim(),
-        category: newSkillCategory,
-      });
+      .insert({ org_id: orgId, name: newSkillName.trim() });
 
     if (error) {
       setSkillError(
         error.message.includes("duplicate")
-          ? "This item already exists."
+          ? "This skill already exists."
           : error.message
       );
       return;
@@ -179,26 +157,41 @@ export default function SettingsPage() {
   };
 
   const deleteSkill = async (skill: Skill) => {
-    const config = CATEGORY_CONFIG[skill.category];
-    if (!confirm(`Delete "${skill.name}" ${config.label.toLowerCase()}?`))
-      return;
+    if (!confirm(`Delete "${skill.name}" skill?`)) return;
     await supabase.from("skills").delete().eq("id", skill.id);
     fetchSkills();
   };
 
-  // Group skills by category
-  const skillsByCategory = CATEGORIES.reduce(
-    (acc, cat) => {
-      acc[cat] = skills.filter((s) => s.category === cat);
-      return acc;
-    },
-    {} as Record<SkillCategory, Skill[]>
-  );
+  const addRole = async () => {
+    if (!orgId || !newRoleName.trim()) return;
+    setRoleError("");
+    const { error } = await supabase
+      .from("roles")
+      .insert({ org_id: orgId, name: newRoleName.trim() });
+
+    if (error) {
+      setRoleError(
+        error.message.includes("duplicate")
+          ? "This role already exists."
+          : error.message
+      );
+      return;
+    }
+    setNewRoleName("");
+    fetchRoles();
+  };
+
+  const deleteRole = async (role: Role) => {
+    if (!confirm(`Delete "${role.name}" role?`)) return;
+    await supabase.from("roles").delete().eq("id", role.id);
+    fetchRoles();
+  };
 
   const tabs = [
     { id: "organization" as const, label: "Organization", icon: Building2 },
     { id: "team" as const, label: "Team", icon: Users },
-    { id: "skills" as const, label: "Skills & Certs", icon: Tag },
+    { id: "skills" as const, label: "Skills", icon: Tag },
+    { id: "roles" as const, label: "Roles", icon: Shield },
   ];
 
   return (
@@ -305,37 +298,20 @@ export default function SettingsPage() {
         </Card>
       )}
 
-      {/* Skills & Certs Tab */}
+      {/* Skills Tab */}
       {activeTab === "skills" && (
         <div className="space-y-6">
-          {/* Add new skill/cert/interest */}
           <Card>
             <h2 className="mb-2 text-lg font-semibold text-gray-900">
-              Add New
+              Skills & Programs
             </h2>
             <p className="mb-4 text-sm text-gray-500">
-              Define skills, certifications, and interests that can be assigned
-              to volunteers.
+              Define skills and programs that can be assigned to volunteers via
+              checkboxes.
             </p>
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <div className="relative">
-                <select
-                  value={newSkillCategory}
-                  onChange={(e) =>
-                    setNewSkillCategory(e.target.value as SkillCategory)
-                  }
-                  className="block w-full appearance-none rounded-lg border border-gray-300 bg-white px-3 py-2 pr-8 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:w-44"
-                >
-                  {CATEGORIES.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {CATEGORY_CONFIG[cat].label}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              </div>
+            <div className="flex gap-3">
               <Input
-                placeholder={`New ${CATEGORY_CONFIG[newSkillCategory].label.toLowerCase()} name...`}
+                placeholder="New skill name..."
                 value={newSkillName}
                 onChange={(e) => {
                   setNewSkillName(e.target.value);
@@ -359,60 +335,109 @@ export default function SettingsPage() {
             )}
           </Card>
 
-          {/* Skills grouped by category */}
-          {loadingSkills ? (
-            <div className="flex justify-center py-8">
-              <div className="h-6 w-6 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
-            </div>
-          ) : (
-            CATEGORIES.map((cat) => {
-              const config = CATEGORY_CONFIG[cat];
-              const items = skillsByCategory[cat];
-              const Icon = config.icon;
-
-              return (
-                <Card key={cat}>
-                  <div className="mb-3 flex items-center gap-2">
-                    <div className={`rounded-lg ${config.bgColor} p-2`}>
-                      <Icon className={`h-4 w-4 ${config.color}`} />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">
-                        {config.plural}
-                      </h3>
-                      <p className="text-xs text-gray-500">
-                        {config.description}
-                      </p>
-                    </div>
+          <Card>
+            <h3 className="mb-3 font-semibold text-gray-900">
+              All Skills ({skills.length})
+            </h3>
+            {loadingSkills ? (
+              <div className="flex justify-center py-8">
+                <div className="h-6 w-6 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+              </div>
+            ) : skills.length === 0 ? (
+              <p className="py-3 text-center text-sm text-gray-400">
+                No skills defined yet.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {skills.map((skill) => (
+                  <div
+                    key={skill.id}
+                    className="group flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1.5 text-sm text-blue-700"
+                  >
+                    <span>{skill.name}</span>
+                    <button
+                      onClick={() => deleteSkill(skill)}
+                      className="ml-1 rounded-full p-0.5 opacity-0 transition-opacity hover:bg-white/50 group-hover:opacity-100"
+                      title="Delete skill"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
                   </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
 
-                  {items.length === 0 ? (
-                    <p className="py-3 text-center text-sm text-gray-400">
-                      No {config.plural.toLowerCase()} defined yet.
-                    </p>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {items.map((skill) => (
-                        <div
-                          key={skill.id}
-                          className={`group flex items-center gap-1 rounded-full ${config.bgColor} px-3 py-1.5 text-sm ${config.color}`}
-                        >
-                          <span>{skill.name}</span>
-                          <button
-                            onClick={() => deleteSkill(skill)}
-                            className="ml-1 rounded-full p-0.5 opacity-0 transition-opacity hover:bg-white/50 group-hover:opacity-100"
-                            title={`Delete ${config.label.toLowerCase()}`}
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </Card>
-              );
-            })
-          )}
+      {/* Roles Tab */}
+      {activeTab === "roles" && (
+        <div className="space-y-6">
+          <Card>
+            <h2 className="mb-2 text-lg font-semibold text-gray-900">Roles</h2>
+            <p className="mb-4 text-sm text-gray-500">
+              Define organizational roles like Walk Chair, Board Member, Regional
+              Lead, etc.
+            </p>
+            <div className="flex gap-3">
+              <Input
+                placeholder="New role name..."
+                value={newRoleName}
+                onChange={(e) => {
+                  setNewRoleName(e.target.value);
+                  setRoleError("");
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addRole();
+                  }
+                }}
+                className="flex-1"
+              />
+              <Button onClick={addRole} disabled={!newRoleName.trim()}>
+                <Plus className="mr-1 h-4 w-4" />
+                Add
+              </Button>
+            </div>
+            {roleError && (
+              <p className="mt-2 text-sm text-red-600">{roleError}</p>
+            )}
+          </Card>
+
+          <Card>
+            <h3 className="mb-3 font-semibold text-gray-900">
+              All Roles ({roles.length})
+            </h3>
+            {loadingRoles ? (
+              <div className="flex justify-center py-8">
+                <div className="h-6 w-6 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+              </div>
+            ) : roles.length === 0 ? (
+              <p className="py-3 text-center text-sm text-gray-400">
+                No roles defined yet.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {roles.map((role) => (
+                  <div
+                    key={role.id}
+                    className="group flex items-center gap-1 rounded-full bg-purple-50 px-3 py-1.5 text-sm text-purple-700"
+                  >
+                    <Shield className="h-3.5 w-3.5" />
+                    <span>{role.name}</span>
+                    <button
+                      onClick={() => deleteRole(role)}
+                      className="ml-1 rounded-full p-0.5 opacity-0 transition-opacity hover:bg-white/50 group-hover:opacity-100"
+                      title="Delete role"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
         </div>
       )}
     </div>

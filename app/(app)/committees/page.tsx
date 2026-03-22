@@ -22,6 +22,7 @@ import {
 type CommitteeWithCount = Committee & { member_count: number };
 type CommitteeMember = {
   volunteer_id: string;
+  role: string;
   joined_at: string;
   volunteers: { id: string; first_name: string; last_name: string };
 };
@@ -181,7 +182,7 @@ export default function CommitteesPage() {
     const { data } = await supabase
       .from("volunteer_committees")
       .select(
-        "volunteer_id, joined_at, volunteers(id, first_name, last_name)"
+        "volunteer_id, role, joined_at, volunteers(id, first_name, last_name)"
       )
       .eq("committee_id", c.id);
     setMembers((data as unknown as CommitteeMember[]) || []);
@@ -361,9 +362,35 @@ export default function CommitteesPage() {
                     key={m.volunteer_id}
                     className="flex items-center justify-between rounded-lg border border-gray-100 p-3"
                   >
-                    <p className="font-medium text-gray-900">
-                      {m.volunteers.first_name} {m.volunteers.last_name}
-                    </p>
+                    <div className="flex items-center gap-3">
+                      <p className="font-medium text-gray-900">
+                        {m.volunteers.first_name} {m.volunteers.last_name}
+                      </p>
+                      <input
+                        type="text"
+                        value={m.role || "Member"}
+                        onChange={async (e) => {
+                          const newRole = e.target.value;
+                          setMembers((prev) =>
+                            prev.map((mem) =>
+                              mem.volunteer_id === m.volunteer_id
+                                ? { ...mem, role: newRole }
+                                : mem
+                            )
+                          );
+                        }}
+                        onBlur={async (e) => {
+                          if (!selectedCommittee) return;
+                          await supabase
+                            .from("volunteer_committees")
+                            .update({ role: e.target.value || "Member" })
+                            .eq("volunteer_id", m.volunteer_id)
+                            .eq("committee_id", selectedCommittee.id);
+                        }}
+                        className="w-28 rounded border border-gray-200 px-2 py-1 text-xs text-gray-600 focus:border-blue-500 focus:outline-none"
+                        placeholder="Role"
+                      />
+                    </div>
                     <button
                       onClick={() => removeMember(m.volunteer_id)}
                       className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
