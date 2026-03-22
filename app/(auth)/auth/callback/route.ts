@@ -1,10 +1,24 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+/** Validate that a redirect path is a safe, relative internal path. */
+function sanitizeRedirectPath(path: string): string {
+  // Must start with a single slash and not contain protocol-relative URLs
+  if (
+    !path.startsWith("/") ||
+    path.startsWith("//") ||
+    path.includes("://") ||
+    path.includes("\\")
+  ) {
+    return "/dashboard";
+  }
+  return path;
+}
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/dashboard";
+  const next = sanitizeRedirectPath(searchParams.get("next") ?? "/dashboard");
 
   if (code) {
     const supabase = await createClient();
