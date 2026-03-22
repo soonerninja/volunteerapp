@@ -65,6 +65,7 @@ export default function SettingsPage() {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState("");
   const [inviteSuccess, setInviteSuccess] = useState("");
+  const [inviteTableExists, setInviteTableExists] = useState(true);
   const inviteEmailRef = useRef<HTMLInputElement>(null);
 
   // Skills
@@ -110,12 +111,17 @@ export default function SettingsPage() {
 
   const fetchInvites = useCallback(async () => {
     if (!orgId) return;
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("team_invites")
       .select("*")
       .eq("org_id", orgId)
       .eq("status", "pending")
       .order("created_at", { ascending: false });
+    if (error?.message?.includes("schema cache") || error?.message?.includes("does not exist")) {
+      setInviteTableExists(false);
+      return;
+    }
+    setInviteTableExists(true);
     setInvites(data || []);
   }, [orgId, supabase]);
 
@@ -463,6 +469,27 @@ export default function SettingsPage() {
             <h2 className="mb-2 text-lg font-semibold text-gray-900">
               Invite Team Member
             </h2>
+
+            {!inviteTableExists ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                <p className="mb-2 text-sm font-medium text-amber-800">
+                  Migration Required
+                </p>
+                <p className="mb-3 text-sm text-amber-700">
+                  The team invites feature requires a database migration. Go to your
+                  Supabase dashboard &rarr; SQL Editor and run the contents of{" "}
+                  <code className="rounded bg-amber-100 px-1 py-0.5 text-xs font-mono">
+                    supabase/migrations/00005_team_invites.sql
+                  </code>{" "}
+                  and{" "}
+                  <code className="rounded bg-amber-100 px-1 py-0.5 text-xs font-mono">
+                    supabase/migrations/00006_event_address_and_seed.sql
+                  </code>
+                  , then refresh this page.
+                </p>
+              </div>
+            ) : (
+              <>
             <p className="mb-4 text-sm text-gray-500">
               Invite people to help manage your organization. They&apos;ll join
               automatically when they sign up with the invited email.
@@ -522,10 +549,12 @@ export default function SettingsPage() {
                 {inviteSuccess}
               </p>
             )}
+              </>
+            )}
           </Card>
 
           {/* Pending Invites */}
-          {invites.length > 0 && (
+          {inviteTableExists && invites.length > 0 && (
             <Card>
               <h3 className="mb-3 font-semibold text-gray-900">
                 Pending Invites ({invites.length})

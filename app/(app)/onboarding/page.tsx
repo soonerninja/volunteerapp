@@ -36,13 +36,13 @@ export default function OnboardingPage() {
         return;
       }
 
-      const { data: invites } = await supabase
+      const { data: invites, error: inviteErr } = await supabase
         .from("team_invites")
         .select("id, org_id, email, role")
         .eq("status", "pending")
         .ilike("email", user.email);
 
-      if (invites && invites.length > 0) {
+      if (!inviteErr && invites && invites.length > 0) {
         const invite = invites[0];
         // Fetch org name for display
         const { data: org } = await supabase

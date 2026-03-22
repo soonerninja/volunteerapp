@@ -378,7 +378,12 @@ export async function seedSampleData(
           }
 
           if (evt.title === "Spring Community Walk") {
-            const vols = ["maria.garcia@example.com", "kevin.h@example.com", "emily.d@example.com"];
+            const vols = [
+              "maria.garcia@example.com", "kevin.h@example.com", "emily.d@example.com",
+              "james.w@example.com", "sarah.j@example.com", "robert.m@example.com",
+              "daniel.l@example.com", "rachel.c@example.com",
+            ];
+            const roles = ["Event Chair", "Route Marshal", "Photographer", "Setup Lead", "Registration", "Water Station", "Course Marshal", null];
             const assigns = vols.map((email, i) => {
               const vol = volByEmail.get(email);
               if (!vol) return null;
@@ -386,7 +391,67 @@ export async function seedSampleData(
                 event_id: evt.id,
                 volunteer_id: vol.id,
                 hours_logged: 0,
-                notes: ["Event Chair", "Route Marshal", "Photographer"][i],
+                notes: roles[i] || null,
+              };
+            }).filter(Boolean);
+            if (assigns.length > 0) {
+              await supabase.from("event_volunteers").insert(assigns);
+            }
+          }
+
+          if (evt.title === "Volunteer Orientation") {
+            const vols = ["jennifer.a@example.com", "maria.garcia@example.com", "kevin.h@example.com"];
+            const assigns = vols.map((email, i) => {
+              const vol = volByEmail.get(email);
+              if (!vol) return null;
+              return {
+                event_id: evt.id,
+                volunteer_id: vol.id,
+                hours_logged: 0,
+                notes: ["Lead Trainer", "Co-Trainer", "Safety Demo"][i],
+              };
+            }).filter(Boolean);
+            if (assigns.length > 0) {
+              await supabase.from("event_volunteers").insert(assigns);
+            }
+          }
+
+          if (evt.title === "Summer Fun Run") {
+            const vols = [
+              "james.w@example.com", "daniel.l@example.com", "kevin.h@example.com",
+              "robert.m@example.com", "nicole.w@example.com", "amanda.w@example.com",
+              "sarah.j@example.com",
+            ];
+            const roles = ["Course Director", "Water Station Lead", "Route Marshal", "Water Station", "Registration", "Registration", "First Aid"];
+            const assigns = vols.map((email, i) => {
+              const vol = volByEmail.get(email);
+              if (!vol) return null;
+              return {
+                event_id: evt.id,
+                volunteer_id: vol.id,
+                hours_logged: 0,
+                notes: roles[i] || null,
+              };
+            }).filter(Boolean);
+            if (assigns.length > 0) {
+              await supabase.from("event_volunteers").insert(assigns);
+            }
+          }
+
+          if (evt.title === "Fundraising Gala") {
+            const vols = [
+              "michael.b@example.com", "lisa.t@example.com", "emily.d@example.com",
+              "amanda.w@example.com", "rachel.c@example.com",
+            ];
+            const roles = ["Event Coordinator", "Social Media", "Photographer", "Registration", "Auction Runner"];
+            const assigns = vols.map((email, i) => {
+              const vol = volByEmail.get(email);
+              if (!vol) return null;
+              return {
+                event_id: evt.id,
+                volunteer_id: vol.id,
+                hours_logged: 0,
+                notes: roles[i] || null,
               };
             }).filter(Boolean);
             if (assigns.length > 0) {
