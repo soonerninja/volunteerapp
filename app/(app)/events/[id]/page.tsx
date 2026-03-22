@@ -48,6 +48,7 @@ export default function EventDetailPage() {
   const [success, setSuccess] = useState("");
   const [hoursEdits, setHoursEdits] = useState<Record<string, string>>({});
   const [assignRole, setAssignRole] = useState("");
+  const [stagedVolunteer, setStagedVolunteer] = useState<Volunteer | null>(null);
 
   // Form state
   const [form, setForm] = useState({
@@ -176,14 +177,14 @@ export default function EventDetailPage() {
     router.push("/events");
   };
 
-  const assignVolunteer = async (vol: Volunteer) => {
-    if (!event || !orgId || !profile) return;
+  const assignVolunteer = async () => {
+    if (!stagedVolunteer || !event || !orgId || !profile) return;
 
     const { error: assignErr } = await supabase
       .from("event_volunteers")
       .insert({
         event_id: event.id,
-        volunteer_id: vol.id,
+        volunteer_id: stagedVolunteer.id,
         notes: assignRole.trim() || null,
       });
 
@@ -198,9 +199,10 @@ export default function EventDetailPage() {
       action: "signup.created",
       entity_type: "event_volunteer",
       entity_id: event.id,
-      metadata: { volunteer_id: vol.id },
+      metadata: { volunteer_id: stagedVolunteer.id },
     });
 
+    setStagedVolunteer(null);
     setAssignRole("");
     fetchEventVolunteers();
   };
@@ -486,23 +488,43 @@ export default function EventDetailPage() {
               <p className="mb-2 text-xs font-medium text-gray-500">
                 Add Volunteer
               </p>
-              <div className="flex gap-2">
+
+              {stagedVolunteer ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between rounded-lg bg-blue-50 px-3 py-2">
+                    <span className="text-sm font-medium text-blue-900">
+                      {stagedVolunteer.first_name} {stagedVolunteer.last_name}
+                    </span>
+                    <button
+                      onClick={() => setStagedVolunteer(null)}
+                      className="rounded p-0.5 text-blue-400 hover:text-blue-600"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={assignRole}
+                    onChange={(e) => setAssignRole(e.target.value)}
+                    placeholder="Role (optional)"
+                    className="block w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                  <Button
+                    onClick={assignVolunteer}
+                    size="sm"
+                    className="w-full"
+                  >
+                    Assign
+                  </Button>
+                </div>
+              ) : (
                 <VolunteerSearchSelect
                   volunteers={volunteers}
                   excludeIds={assignedIds}
-                  onSelect={assignVolunteer}
+                  onSelect={(vol) => setStagedVolunteer(vol)}
                   placeholder="Search to assign..."
                 />
-              </div>
-              <div className="mt-2">
-                <input
-                  type="text"
-                  value={assignRole}
-                  onChange={(e) => setAssignRole(e.target.value)}
-                  placeholder="Role (optional)"
-                  className="block w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
+              )}
             </div>
           </Card>
         </div>
