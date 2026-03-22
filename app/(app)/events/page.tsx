@@ -52,6 +52,7 @@ export default function EventsPage() {
     title: "",
     description: "",
     location: "",
+    address: "",
     start_date: "",
     end_date: "",
     max_volunteers: "",
@@ -98,6 +99,7 @@ export default function EventsPage() {
       title: "",
       description: "",
       location: "",
+      address: "",
       start_date: "",
       end_date: "",
       max_volunteers: "",
@@ -145,6 +147,7 @@ export default function EventsPage() {
       title: form.title.trim(),
       description: form.description.trim() || null,
       location: form.location.trim() || null,
+      address: form.address.trim() || null,
       start_date: new Date(form.start_date).toISOString(),
       end_date: new Date(form.end_date).toISOString(),
       max_volunteers: form.max_volunteers
@@ -249,12 +252,22 @@ export default function EventsPage() {
                 error={fieldErrors.title}
                 required
               />
-              <Input
-                label="Location"
-                id="location"
-                value={form.location}
-                onChange={(e) => setForm({ ...form, location: e.target.value })}
-              />
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  label="Venue / Place Name"
+                  id="location"
+                  placeholder="e.g., Ruby Grant Park"
+                  value={form.location}
+                  onChange={(e) => setForm({ ...form, location: e.target.value })}
+                />
+                <Input
+                  label="Address"
+                  id="address"
+                  placeholder="e.g., 123 Main St, Norman, OK"
+                  value={form.address}
+                  onChange={(e) => setForm({ ...form, address: e.target.value })}
+                />
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <Input
                   label="Start Date/Time *"
@@ -336,10 +349,22 @@ export default function EventsPage() {
                       <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
                       {formatDate(evt.start_date)}
                     </span>
-                    {evt.location && (
+                    {(evt.location || evt.address) && (
                       <span className="flex items-center gap-1">
                         <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
-                        {evt.location}
+                        {evt.location || evt.address}
+                        {evt.address && (
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(evt.address)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="ml-1 text-blue-600 hover:text-blue-800 underline"
+                            aria-label={`Get directions to ${evt.location || evt.address}`}
+                          >
+                            Map
+                          </a>
+                        )}
                       </span>
                     )}
                     <span className="flex items-center gap-1">

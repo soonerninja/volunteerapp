@@ -89,6 +89,7 @@ export interface Event {
   title: string;
   description: string | null;
   location: string | null;
+  address: string | null;
   start_date: string;
   end_date: string;
   max_volunteers: number | null;

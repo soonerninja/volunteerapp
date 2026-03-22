@@ -14,6 +14,7 @@ import {
   Save,
   Trash2,
   X,
+  MapPin,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -46,6 +47,7 @@ export default function EventDetailPage() {
     title: "",
     description: "",
     location: "",
+    address: "",
     start_date: "",
     end_date: "",
     max_volunteers: "",
@@ -71,6 +73,7 @@ export default function EventDetailPage() {
       title: data.title,
       description: data.description || "",
       location: data.location || "",
+      address: data.address || "",
       start_date: data.start_date.slice(0, 16),
       end_date: data.end_date.slice(0, 16),
       max_volunteers: data.max_volunteers?.toString() || "",
@@ -144,6 +147,7 @@ export default function EventDetailPage() {
       title: form.title.trim(),
       description: form.description.trim() || null,
       location: form.location.trim() || null,
+      address: form.address.trim() || null,
       start_date: new Date(form.start_date).toISOString(),
       end_date: new Date(form.end_date).toISOString(),
       max_volunteers: form.max_volunteers
@@ -391,13 +395,40 @@ export default function EventDetailPage() {
                   required
                 />
                 <Input
-                  label="Location"
+                  label="Venue / Place Name"
                   id="location"
+                  placeholder="e.g., Ruby Grant Park"
                   value={form.location}
                   onChange={(e) =>
                     setForm({ ...form, location: e.target.value })
                   }
                 />
+              </div>
+
+              <div className="flex items-end gap-3">
+                <div className="flex-1">
+                  <Input
+                    label="Address"
+                    id="address"
+                    placeholder="e.g., 123 Main St, Norman, OK 73019"
+                    value={form.address}
+                    onChange={(e) =>
+                      setForm({ ...form, address: e.target.value })
+                    }
+                  />
+                </div>
+                {form.address.trim() && (
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(form.address.trim())}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mb-[1px] inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50"
+                    aria-label="View address on Google Maps"
+                  >
+                    <MapPin className="h-4 w-4" aria-hidden="true" />
+                    Get Directions
+                  </a>
+                )}
               </div>
 
               <Input

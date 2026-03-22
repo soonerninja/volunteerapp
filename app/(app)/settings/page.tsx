@@ -5,6 +5,7 @@ import { useOrg } from "@/hooks/use-org";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import { seedSampleData } from "@/lib/seed-data";
 import type { Organization, Profile, Skill, Role, TeamInvite } from "@/types/database";
 import {
   Building2,
@@ -17,6 +18,7 @@ import {
   Mail,
   Clock,
   Trash2,
+  Database,
 } from "lucide-react";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -76,6 +78,10 @@ export default function SettingsPage() {
   const [newRoleName, setNewRoleName] = useState("");
   const [loadingRoles, setLoadingRoles] = useState(true);
   const [roleError, setRoleError] = useState("");
+
+  // Seed data
+  const [seeding, setSeeding] = useState(false);
+  const [seedMsg, setSeedMsg] = useState("");
 
   const fetchOrg = useCallback(async () => {
     if (!orgId) return;
@@ -327,6 +333,22 @@ export default function SettingsPage() {
     fetchRoles();
   };
 
+  const handleSeedData = async () => {
+    if (!orgId || !profile) return;
+    if (!confirm("This will add sample volunteers, events, skills, roles, and committees to your organization. Continue?")) return;
+    setSeeding(true);
+    setSeedMsg("");
+    const result = await seedSampleData(supabase, orgId, profile.id);
+    setSeedMsg(result.message);
+    setSeeding(false);
+    if (result.success) {
+      // Refresh all data
+      fetchSkills();
+      fetchRoles();
+      fetchTeam();
+    }
+  };
+
   const tabs = [
     { id: "organization" as const, label: "Organization", icon: Building2 },
     { id: "team" as const, label: "Team", icon: Users },
@@ -404,6 +426,30 @@ export default function SettingsPage() {
             >
               <Save className="mr-2 h-4 w-4" aria-hidden="true" />
               Save Changes
+            </Button>
+          </div>
+
+          {/* Seed Data */}
+          <div className="mt-8 border-t border-gray-200 pt-6">
+            <h3 className="mb-2 text-sm font-semibold text-gray-900">
+              Sample Data
+            </h3>
+            <p className="mb-3 text-sm text-gray-500">
+              Load realistic sample data to test the app — 15 volunteers, 6 events,
+              skills, roles, and committees with assignments.
+            </p>
+            {seedMsg && (
+              <p role="status" className={`mb-3 text-sm ${seedMsg.includes("error") || seedMsg.includes("Error") ? "text-red-600" : "text-green-600"}`}>
+                {seedMsg}
+              </p>
+            )}
+            <Button
+              variant="secondary"
+              onClick={handleSeedData}
+              loading={seeding}
+            >
+              <Database className="mr-2 h-4 w-4" aria-hidden="true" />
+              Load Sample Data
             </Button>
           </div>
         </Card>
