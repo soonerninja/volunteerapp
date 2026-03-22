@@ -1,0 +1,23 @@
+{
+  "name": "volunteerapp",
+  "version": "1.0.0",
+  "description": "A volunteer management application for coordinating volunteers, events, and organizations",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test src/**/*.test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://local_proxy@127.0.0.1:40911/git/soonerninja/volunteerapp"
+  },
+  "keywords": ["volunteer", "management", "events", "nonprofit"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.21.0",
+    "better-sqlite3": "^11.0.0",
+    "cors": "^2.8.5"
+  }
+}
