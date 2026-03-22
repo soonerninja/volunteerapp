@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatDate } from "@/utils/format";
-import type { Volunteer, Skill, Role } from "@/types/database";
+import type { Volunteer, Skill, Role, Committee } from "@/types/database";
 import {
   Users,
   Plus,
@@ -20,15 +20,17 @@ import {
   Phone,
   Mail,
   Shield,
+  Filter,
 } from "lucide-react";
 
 type VolunteerWithDetails = Volunteer & {
   skillIds: string[];
   roleIds: string[];
+  committeeIds: string[];
 };
 
 const STATUS_OPTIONS = [
-  { value: "", label: "All Statuses" },
+  { value: "", label: "All" },
   { value: "active", label: "Active" },
   { value: "inactive", label: "Inactive" },
   { value: "on_leave", label: "On Leave" },
@@ -48,14 +50,20 @@ export default function VolunteersPage() {
   const [volunteers, setVolunteers] = useState<VolunteerWithDetails[]>([]);
   const [skills, setSkills] = useState<Skill[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
+  const [committees, setCommittees] = useState<Committee[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingVolunteer, setEditingVolunteer] =
     useState<VolunteerWithDetails | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // Filters
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [skillFilter, setSkillFilter] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
+  const [committeeFilter, setCommitteeFilter] = useState("");
 
   // Form state
   const [form, setForm] = useState({
@@ -83,13 +91,21 @@ export default function VolunteersPage() {
     const volIds = (vols || []).map((v) => v.id);
     let volSkills: { volunteer_id: string; skill_id: string }[] = [];
     let volRoles: { volunteer_id: string; role_id: string }[] = [];
+    let volCommittees: { volunteer_id: string; committee_id: string }[] = [];
 
     if (volIds.length > 0) {
-      const skillsRes = await supabase
-        .from("volunteer_skills")
-        .select("volunteer_id, skill_id")
-        .in("volunteer_id", volIds);
+      const [skillsRes, committeesRes] = await Promise.all([
+        supabase
+          .from("volunteer_skills")
+          .select("volunteer_id, skill_id")
+          .in("volunteer_id", volIds),
+        supabase
+          .from("volunteer_committees")
+          .select("volunteer_id, committee_id")
+          .in("volunteer_id", volIds),
+      ]);
       volSkills = skillsRes.data || [];
+      volCommittees = committeesRes.data || [];
 
       // volunteer_roles table may not exist yet if migration hasn't run
       const rolesRes = await supabase
@@ -110,6 +126,9 @@ export default function VolunteersPage() {
         roleIds: volRoles
           .filter((vr) => vr.volunteer_id === v.id)
           .map((vr) => vr.role_id),
+        committeeIds: volCommittees
+          .filter((vc) => vc.volunteer_id === v.id)
+          .map((vc) => vc.committee_id),
       })
     );
 
@@ -129,19 +148,30 @@ export default function VolunteersPage() {
 
   const fetchRoles = useCallback(async () => {
     if (!orgId) return;
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("roles")
       .select("*")
       .eq("org_id", orgId)
       .order("name");
-    setRoles(data || []);
+    if (!error) setRoles(data || []);
+  }, [orgId, supabase]);
+
+  const fetchCommittees = useCallback(async () => {
+    if (!orgId) return;
+    const { data } = await supabase
+      .from("committees")
+      .select("*")
+      .eq("org_id", orgId)
+      .order("name");
+    setCommittees(data || []);
   }, [orgId, supabase]);
 
   useEffect(() => {
     fetchVolunteers();
     fetchSkills();
     fetchRoles();
-  }, [fetchVolunteers, fetchSkills, fetchRoles]);
+    fetchCommittees();
+  }, [fetchVolunteers, fetchSkills, fetchRoles, fetchCommittees]);
 
   const resetForm = () => {
     setForm({
@@ -218,16 +248,15 @@ export default function VolunteersPage() {
       volunteerId = editingVolunteer.id;
 
       // Remove old skills and roles
-      await Promise.all([
-        supabase
-          .from("volunteer_skills")
-          .delete()
-          .eq("volunteer_id", volunteerId),
-        supabase
-          .from("volunteer_roles")
-          .delete()
-          .eq("volunteer_id", volunteerId),
-      ]);
+      await supabase
+        .from("volunteer_skills")
+        .delete()
+        .eq("volunteer_id", volunteerId);
+      // Try to delete roles (table may not exist)
+      await supabase
+        .from("volunteer_roles")
+        .delete()
+        .eq("volunteer_id", volunteerId);
 
       await supabase.from("audit_log").insert({
         org_id: orgId,
@@ -277,14 +306,12 @@ export default function VolunteersPage() {
         role_id: roleId,
       }));
 
-    await Promise.all([
-      selectedSkillIds.length > 0
-        ? supabase.from("volunteer_skills").insert(selectedSkillIds)
-        : Promise.resolve(),
-      selectedRoleIds.length > 0
-        ? supabase.from("volunteer_roles").insert(selectedRoleIds)
-        : Promise.resolve(),
-    ]);
+    if (selectedSkillIds.length > 0) {
+      await supabase.from("volunteer_skills").insert(selectedSkillIds);
+    }
+    if (selectedRoleIds.length > 0) {
+      await supabase.from("volunteer_roles").insert(selectedRoleIds);
+    }
 
     setSaving(false);
     resetForm();
@@ -308,15 +335,28 @@ export default function VolunteersPage() {
   };
 
   // Filter volunteers
+  const hasActiveFilters = !!(search || statusFilter || skillFilter || roleFilter || committeeFilter);
+
   const filtered = volunteers.filter((v) => {
     const matchesSearch =
       !search ||
-      `${v.first_name} ${v.last_name} ${v.email || ""}`
+      `${v.first_name} ${v.last_name} ${v.email || ""} ${v.phone || ""}`
         .toLowerCase()
         .includes(search.toLowerCase());
     const matchesStatus = !statusFilter || v.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesSkill = !skillFilter || v.skillIds.includes(skillFilter);
+    const matchesRole = !roleFilter || v.roleIds.includes(roleFilter);
+    const matchesCommittee = !committeeFilter || v.committeeIds.includes(committeeFilter);
+    return matchesSearch && matchesStatus && matchesSkill && matchesRole && matchesCommittee;
   });
+
+  const clearFilters = () => {
+    setSearch("");
+    setStatusFilter("");
+    setSkillFilter("");
+    setRoleFilter("");
+    setCommitteeFilter("");
+  };
 
   // Map skill/role IDs to names for display
   const skillMap = new Map(skills.map((s) => [s.id, s.name]));
@@ -325,12 +365,11 @@ export default function VolunteersPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+        <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold text-gray-900">Volunteers</h1>
-          <p className="text-sm text-gray-500">
-            {volunteers.length} total volunteer
-            {volunteers.length !== 1 && "s"}
-          </p>
+          <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-sm font-medium text-blue-700">
+            {filtered.length}
+          </span>
         </div>
         <Button onClick={() => setShowForm(true)}>
           <Plus className="mr-2 h-4 w-4" />
@@ -338,32 +377,132 @@ export default function VolunteersPage() {
         </Button>
       </div>
 
-      {/* Search & Filter */}
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <Input
-            placeholder="Search by name or email..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-10"
-          />
+      {/* Filters */}
+      <Card padding="sm">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {/* Search */}
+          <div className="relative">
+            <label className="mb-1 block text-xs font-medium text-gray-500">
+              Name / Email
+            </label>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+              <input
+                placeholder="Search..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="block w-full rounded-lg border border-gray-300 bg-white py-2 pl-8 pr-3 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          {/* Status */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-500">
+              Status
+            </label>
+            <div className="relative">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="block w-full appearance-none rounded-lg border border-gray-300 bg-white px-3 py-2 pr-8 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                {STATUS_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            </div>
+          </div>
+
+          {/* Skill filter */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-500">
+              Skill / Program
+            </label>
+            <div className="relative">
+              <select
+                value={skillFilter}
+                onChange={(e) => setSkillFilter(e.target.value)}
+                className="block w-full appearance-none rounded-lg border border-gray-300 bg-white px-3 py-2 pr-8 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                <option value="">All</option>
+                {skills.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            </div>
+          </div>
+
+          {/* Role filter */}
+          {roles.length > 0 && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-500">
+                Role
+              </label>
+              <div className="relative">
+                <select
+                  value={roleFilter}
+                  onChange={(e) => setRoleFilter(e.target.value)}
+                  className="block w-full appearance-none rounded-lg border border-gray-300 bg-white px-3 py-2 pr-8 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="">All</option>
+                  {roles.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              </div>
+            </div>
+          )}
+
+          {/* Committee filter */}
+          {committees.length > 0 && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-500">
+                Committee
+              </label>
+              <div className="relative">
+                <select
+                  value={committeeFilter}
+                  onChange={(e) => setCommitteeFilter(e.target.value)}
+                  className="block w-full appearance-none rounded-lg border border-gray-300 bg-white px-3 py-2 pr-8 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="">All</option>
+                  {committees.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              </div>
+            </div>
+          )}
         </div>
-        <div className="relative">
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="block w-full appearance-none rounded-lg border border-gray-300 bg-white px-3 py-2 pr-8 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          >
-            {STATUS_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-          <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-        </div>
-      </div>
+
+        {hasActiveFilters && (
+          <div className="mt-3 flex items-center gap-2">
+            <Filter className="h-3.5 w-3.5 text-gray-400" />
+            <span className="text-xs text-gray-500">
+              Showing {filtered.length} of {volunteers.length}
+            </span>
+            <button
+              onClick={clearFilters}
+              className="ml-1 rounded px-2 py-0.5 text-xs text-blue-600 hover:bg-blue-50"
+            >
+              Clear filters
+            </button>
+          </div>
+        )}
+      </Card>
 
       {/* Add/Edit Form Modal */}
       {showForm && (
