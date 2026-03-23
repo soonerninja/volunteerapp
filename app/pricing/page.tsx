@@ -84,6 +84,16 @@ export default function PricingPage() {
           </p>
         </div>
 
+        {/* Early Adopter Banner */}
+        <div className="mx-auto mb-10 max-w-2xl rounded-xl border border-blue-200 bg-blue-50 px-6 py-5 text-center">
+          <h2 className="text-lg font-bold text-blue-900">
+            Early Adopter Special &mdash; 50% Off Your First Year
+          </h2>
+          <p className="mt-1 text-sm text-blue-700">
+            Be one of the first to join GoodTally and lock in half-price forever. Limited time.
+          </p>
+        </div>
+
         {/* Pricing Cards */}
         <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 md:grid-cols-3">
           {TIER_ORDER.map((tier) => {
@@ -106,9 +116,16 @@ export default function PricingPage() {
 
                 {/* Plan name & price */}
                 <div className="mb-6">
-                  <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${style.badge}`}>
-                    {plan.name}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${style.badge}`}>
+                      {plan.name}
+                    </span>
+                    {plan.price > 0 && (
+                      <span className="inline-block rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">
+                        Early Adopter
+                      </span>
+                    )}
+                  </div>
                   <div className="mt-4">
                     {plan.price === 0 ? (
                       <div className="flex items-baseline gap-1">
@@ -118,9 +135,12 @@ export default function PricingPage() {
                     ) : (
                       <div className="flex items-baseline gap-1">
                         <span className="text-4xl font-bold text-gray-900">
+                          ${plan.price / 2}
+                        </span>
+                        <span className="text-sm text-gray-500">/yr</span>
+                        <span className="ml-1 text-lg text-gray-400 line-through">
                           ${plan.price}
                         </span>
-                        <span className="text-sm text-gray-500">/year</span>
                       </div>
                     )}
                   </div>

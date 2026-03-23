@@ -243,6 +243,11 @@ export default function BillingPage() {
       {/* Plan Comparison */}
       {plan.tier !== "growth" && (
         <Card>
+          <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-center">
+            <p className="text-sm font-medium text-blue-800">
+              Early adopter pricing: <span className="font-bold">50% off your first year</span> on any paid plan
+            </p>
+          </div>
           <h2 className="mb-6 text-lg font-semibold text-gray-900">
             Available Plans
           </h2>

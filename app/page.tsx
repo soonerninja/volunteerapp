@@ -1,5 +1,21 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Users, Calendar, UsersRound, Clock, FileDown, Shield } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "GoodTally - Volunteer Management for Nonprofits",
+  description:
+    "Simple, affordable volunteer management for small nonprofits. Track volunteers, hours, events, and committees — all in one tool. Free forever for up to 15 volunteers.",
+  keywords: [
+    "volunteer management",
+    "nonprofit software",
+    "volunteer tracking",
+    "volunteer hours",
+    "event management",
+    "committee management",
+    "small nonprofit tools",
+  ],
+};
 
 const features = [
   {
