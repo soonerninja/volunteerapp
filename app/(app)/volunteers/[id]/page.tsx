@@ -8,12 +8,11 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
-import { formatDate, formatRelativeTime } from "@/utils/format";
+import { formatDate, formatRelativeTime, formatAction } from "@/utils/format";
 import type {
   Volunteer,
   Skill,
   Role,
-  Committee,
   AuditLog,
 } from "@/types/database";
 import {
@@ -580,14 +579,4 @@ export default function VolunteerDetailPage() {
   );
 }
 
-function formatAction(action: string): string {
-  const map: Record<string, string> = {
-    "volunteer.created": "Volunteer profile created",
-    "volunteer.updated": "Profile updated",
-    "volunteer.deleted": "Volunteer deleted",
-    "signup.created": "Signed up for an event",
-    "signup.deleted": "Removed from an event",
-    "hours.logged": "Hours logged",
-  };
-  return map[action] || action.replace(/\./g, " ");
-}
+

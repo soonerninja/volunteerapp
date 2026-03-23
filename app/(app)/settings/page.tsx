@@ -20,7 +20,6 @@ import {
   Clock,
   Trash2,
   Database,
-  Lock,
 } from "lucide-react";
 
 const ROLE_LABELS: Record<string, string> = {

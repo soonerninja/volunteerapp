@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { formatDate, formatRelativeTime } from "@/utils/format";
+import { formatDate, formatRelativeTime, formatAction } from "@/utils/format";
 import type {
   DashboardStats,
   UpcomingEvent,
@@ -62,18 +62,7 @@ function StatCard({
   );
 }
 
-function formatAction(action: string): string {
-  const parts = action.split(".");
-  if (parts.length !== 2) return action;
-  const [entity, verb] = parts;
-  const pastVerbs: Record<string, string> = {
-    created: "created",
-    updated: "updated",
-    deleted: "deleted",
-    logged: "logged",
-  };
-  return `${entity} ${pastVerbs[verb] || verb}`;
-}
+
 
 export function DashboardContent({
   stats,

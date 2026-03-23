@@ -30,3 +30,29 @@ export function formatRelativeTime(date: string | Date): string {
   if (diffDays < 7) return `${diffDays}d ago`;
   return formatDate(date);
 }
+
+export function formatAction(action: string): string {
+  const map: Record<string, string> = {
+    "volunteer.created": "Volunteer profile created",
+    "volunteer.updated": "Volunteer profile updated",
+    "volunteer.deleted": "Volunteer deleted",
+    "event.created": "Event created",
+    "event.updated": "Event updated",
+    "event.deleted": "Event deleted",
+    "committee.created": "Committee created",
+    "committee.updated": "Committee updated",
+    "committee.deleted": "Committee deleted",
+    "signup.created": "Signed up for event",
+    "signup.deleted": "Removed from event",
+    "hours.logged": "Hours logged",
+    "org.updated": "Organization updated",
+    "team.invited": "Team member invited",
+    "team.invite_revoked": "Invite revoked",
+  };
+  if (map[action]) return map[action];
+  const parts = action.split(".");
+  if (parts.length === 2) {
+    return `${parts[0]} ${parts[1]}`;
+  }
+  return action;
+}

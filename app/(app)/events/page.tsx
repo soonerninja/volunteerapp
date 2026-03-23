@@ -41,7 +41,7 @@ const STATUS_COLORS: Record<string, string> = {
 export default function EventsPage() {
   const { supabase, orgId, profile } = useOrg();
   const { canEdit } = usePermissions();
-  const { canAdd, usageLabel } = usePlan();
+  const { canAdd, usageLabel, refreshCounts } = usePlan();
   const router = useRouter();
 
   const [events, setEvents] = useState<EventWithSignups[]>([]);

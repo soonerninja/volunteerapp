@@ -31,7 +31,7 @@ type CommitteeMember = {
 export default function CommitteesPage() {
   const { supabase, orgId, profile } = useOrg();
   const { canEdit, canDelete: canDeletePerm } = usePermissions();
-  const { canAdd, usageLabel } = usePlan();
+  const { canAdd, usageLabel, refreshCounts } = usePlan();
 
   const [committees, setCommittees] = useState<CommitteeWithCount[]>([]);
   const [volunteers, setVolunteers] = useState<Volunteer[]>([]);
@@ -167,6 +167,7 @@ export default function CommitteesPage() {
     setSaving(false);
     resetForm();
     fetchCommittees();
+    refreshCounts();
   };
 
   const handleDelete = async (c: Committee) => {
@@ -193,6 +194,7 @@ export default function CommitteesPage() {
     });
     if (selectedCommittee?.id === c.id) setSelectedCommittee(null);
     fetchCommittees();
+    refreshCounts();
   };
 
   // --- Members Management ---
