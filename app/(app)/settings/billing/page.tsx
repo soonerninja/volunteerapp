@@ -296,7 +296,7 @@ export default function BillingPage() {
                     <PlanFeatureRow label="Volunteers" value={formatLimit(config.maxVolunteers)} />
                     <PlanFeatureRow label="Active Events" value={formatLimit(config.maxActiveEvents)} />
                     <PlanFeatureRow label="Committees" value={formatLimit(config.maxCommittees)} />
-                    <PlanFeatureRow label="Admin Users" value={formatLimit(config.maxAdmins)} />
+                    <PlanFeatureRow label="Users" value={formatLimit(config.maxUsers)} />
                     <PlanFeatureCheck label="CSV Export" enabled={config.exports} />
                     <PlanFeatureCheck label="Audit Log" enabled={config.auditLog} />
                     <PlanFeatureCheck label="Custom Branding" enabled={config.customBranding} />
