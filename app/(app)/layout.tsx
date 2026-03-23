@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { AppHeader } from "@/components/layout/app-header";
+import { GuidedTour } from "@/components/ui/guided-tour";
 
 function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -43,6 +44,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
         <AppHeader onMenuClick={() => setSidebarOpen(true)} />
         <main className="flex-1 p-4 lg:p-6">{children}</main>
       </div>
+      <GuidedTour />
     </div>
   );
 }

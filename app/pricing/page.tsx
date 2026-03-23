@@ -247,7 +247,7 @@ export default function PricingPage() {
           <p className="text-gray-500">
             Questions? Reach out at{" "}
             <span className="font-medium text-gray-700">
-              support@goodtally.com
+              support@goodtally.app
             </span>
           </p>
           <Link

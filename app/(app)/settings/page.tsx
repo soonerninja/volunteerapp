@@ -21,7 +21,9 @@ import {
   Trash2,
   Database,
   AlertTriangle,
+  MapPin,
 } from "lucide-react";
+import { useGuidedTour } from "@/hooks/use-guided-tour";
 
 const ROLE_LABELS: Record<string, string> = {
   owner: "Owner",
@@ -72,6 +74,7 @@ const COMMON_TIMEZONES = [
 export default function SettingsPage() {
   const { supabase, orgId, profile, refreshProfile } = useOrg();
   const { canManageTeam, canManageConfig, canEdit } = usePermissions();
+  const { restartTour } = useGuidedTour();
 
   const [activeTab, setActiveTab] = useState<
     "organization" | "team" | "skills" | "roles"
@@ -756,6 +759,20 @@ export default function SettingsPage() {
               >
                 <Database className="mr-2 h-4 w-4" aria-hidden="true" />
                 Load Sample Data
+              </Button>
+            </div>
+
+            {/* Quick Start Tour */}
+            <div className="mt-6 border-t border-gray-200 pt-6">
+              <h3 className="mb-2 text-sm font-semibold text-gray-900">
+                Quick Start Tour
+              </h3>
+              <p className="mb-3 text-sm text-gray-500">
+                Restart the guided tour to walk through the key features again.
+              </p>
+              <Button variant="secondary" onClick={restartTour}>
+                <MapPin className="mr-2 h-4 w-4" aria-hidden="true" />
+                Restart Tour
               </Button>
             </div>
           </Card>
