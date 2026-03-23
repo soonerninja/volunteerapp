@@ -52,7 +52,7 @@ export default function AccountPage() {
   const handleChangePassword = async () => {
     setPasswordMsg(null);
 
-    if (!newPassword || !confirmPassword) {
+    if (!currentPassword || !newPassword || !confirmPassword) {
       setPasswordMsg({ text: "Please fill in all password fields.", type: "error" });
       return;
     }
@@ -67,7 +67,27 @@ export default function AccountPage() {
       return;
     }
 
+    if (currentPassword === newPassword) {
+      setPasswordMsg({ text: "New password must be different from your current password.", type: "error" });
+      return;
+    }
+
     setPasswordLoading(true);
+
+    // Verify current password first
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: user?.email ?? "",
+      password: currentPassword,
+    });
+
+    if (signInError) {
+      setPasswordMsg({
+        text: "Current password is incorrect.",
+        type: "error",
+      });
+      setPasswordLoading(false);
+      return;
+    }
 
     const { error } = await supabase.auth.updateUser({
       password: newPassword,
@@ -204,6 +224,17 @@ export default function AccountPage() {
 
         <div className="max-w-md space-y-4">
           <Input
+            label="Current Password"
+            id="current_password"
+            type="password"
+            placeholder="Enter your current password"
+            value={currentPassword}
+            onChange={(e) => {
+              setCurrentPassword(e.target.value);
+              setPasswordMsg(null);
+            }}
+          />
+          <Input
             label="New Password"
             id="new_password"
             type="password"
@@ -231,7 +262,7 @@ export default function AccountPage() {
           <Button
             onClick={handleChangePassword}
             loading={passwordLoading}
-            disabled={!newPassword || !confirmPassword}
+            disabled={!currentPassword || !newPassword || !confirmPassword}
           >
             Update Password
           </Button>
