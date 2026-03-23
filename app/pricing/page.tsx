@@ -90,7 +90,7 @@ export default function PricingPage() {
             Early Adopter Special &mdash; 50% Off Your First Year
           </h2>
           <p className="mt-1 text-sm text-blue-700">
-            Be one of the first to join GoodTally and lock in half-price forever. Limited time.
+            Be one of the first to join GoodTally and save 50% on your first year. Limited time offer.
           </p>
         </div>
 
@@ -279,6 +279,26 @@ export default function PricingPage() {
           </Link>
         </div>
       </main>
+
+      {/* Footer */}
+      <footer className="border-t border-gray-100 bg-white mt-8">
+        <div className="mx-auto max-w-6xl px-4 py-6 text-xs text-gray-400">
+          <div className="flex items-center justify-between">
+            <span>GoodTally&trade;</span>
+            <div className="flex gap-4">
+              <Link href="/terms" className="hover:text-gray-600">
+                Terms of Service
+              </Link>
+              <Link href="/privacy" className="hover:text-gray-600">
+                Privacy Policy
+              </Link>
+            </div>
+          </div>
+          <p className="mt-3 text-center text-gray-300">
+            &copy; {new Date().getFullYear()} GoodTally. All rights reserved. GoodTally is a trademark of its respective owners.
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }

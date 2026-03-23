@@ -191,6 +191,29 @@ export default function TermsOfServicePage() {
           </div>
         </div>
       </main>
+
+      {/* Footer */}
+      <footer className="border-t border-gray-100 bg-white mt-8">
+        <div className="mx-auto max-w-5xl px-4 py-6 text-xs text-gray-400">
+          <div className="flex items-center justify-between">
+            <span>GoodTally&trade;</span>
+            <div className="flex gap-4">
+              <Link href="/pricing" className="hover:text-gray-600">
+                Pricing
+              </Link>
+              <Link href="/privacy" className="hover:text-gray-600">
+                Privacy Policy
+              </Link>
+              <Link href="/login" className="hover:text-gray-600">
+                Sign In
+              </Link>
+            </div>
+          </div>
+          <p className="mt-3 text-center text-gray-300">
+            &copy; {new Date().getFullYear()} GoodTally. All rights reserved. GoodTally is a trademark of its respective owners.
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { Users, Calendar, UsersRound, Clock, FileDown, Shield } from "lucide-rea
 export const metadata: Metadata = {
   title: "GoodTally - Volunteer Management for Nonprofits",
   description:
-    "Simple, affordable volunteer management for small nonprofits. Track volunteers, hours, events, and committees — all in one tool. Free forever for up to 15 volunteers.",
+    "Simple, affordable volunteer management for small nonprofits. Track volunteers, hours, events, and committees — all in one tool. Free forever for up to 10 volunteers.",
   keywords: [
     "volunteer management",
     "nonprofit software",
@@ -106,7 +106,7 @@ export default function HomePage() {
           </Link>
         </div>
         <p className="mt-4 text-xs text-gray-400">
-          Free forever for up to 15 volunteers. No credit card required.
+          Free forever for up to 10 volunteers. No credit card required.
         </p>
       </section>
 
@@ -152,16 +152,27 @@ export default function HomePage() {
 
       {/* Footer */}
       <footer className="border-t border-gray-100 bg-white">
-        <div className="mx-auto max-w-5xl px-4 py-6 flex items-center justify-between text-xs text-gray-400">
-          <span>GoodTally</span>
-          <div className="flex gap-4">
-            <Link href="/pricing" className="hover:text-gray-600">
-              Pricing
-            </Link>
-            <Link href="/login" className="hover:text-gray-600">
-              Sign In
-            </Link>
+        <div className="mx-auto max-w-5xl px-4 py-6 text-xs text-gray-400">
+          <div className="flex items-center justify-between">
+            <span>GoodTally&trade;</span>
+            <div className="flex gap-4">
+              <Link href="/pricing" className="hover:text-gray-600">
+                Pricing
+              </Link>
+              <Link href="/terms" className="hover:text-gray-600">
+                Terms of Service
+              </Link>
+              <Link href="/privacy" className="hover:text-gray-600">
+                Privacy Policy
+              </Link>
+              <Link href="/login" className="hover:text-gray-600">
+                Sign In
+              </Link>
+            </div>
           </div>
+          <p className="mt-3 text-center text-gray-300">
+            &copy; {new Date().getFullYear()} GoodTally. All rights reserved. GoodTally is a trademark of its respective owners.
+          </p>
         </div>
       </footer>
     </div>
