@@ -9,7 +9,7 @@ import type { PlanConfig } from "@/lib/plan-limits";
 interface ResourceCounts {
   volunteers: number;
   activeEvents: number;
-  admins: number;
+  users: number;
   committees: number;
 }
 
@@ -20,10 +20,10 @@ interface PlanState {
   loading: boolean;
 
   /** Check if adding one more of a resource is allowed */
-  canAdd: (resource: "volunteers" | "activeEvents" | "admins" | "committees") => boolean;
+  canAdd: (resource: "volunteers" | "activeEvents" | "users" | "committees") => boolean;
 
   /** Get "12/15" style usage string */
-  usageLabel: (resource: "volunteers" | "activeEvents" | "admins" | "committees") => string;
+  usageLabel: (resource: "volunteers" | "activeEvents" | "users" | "committees") => string;
 
   /** Whether org is on a paid plan */
   isPaid: boolean;
@@ -38,7 +38,7 @@ interface PlanState {
 const LIMIT_MAP = {
   volunteers: "maxVolunteers",
   activeEvents: "maxActiveEvents",
-  admins: "maxAdmins",
+  users: "maxUsers",
   committees: "maxCommittees",
 } as const;
 
@@ -48,7 +48,7 @@ export function usePlan(): PlanState {
   const [counts, setCounts] = useState<ResourceCounts>({
     volunteers: 0,
     activeEvents: 0,
-    admins: 0,
+    users: 0,
     committees: 0,
   });
   const [loading, setLoading] = useState(true);
@@ -59,11 +59,11 @@ export function usePlan(): PlanState {
     if (!orgId) return;
     setLoading(true);
 
-    const [orgRes, volRes, eventRes, adminRes, committeeRes] = await Promise.all([
+    const [orgRes, volRes, eventRes, userRes, committeeRes] = await Promise.all([
       supabase.from("organizations").select("tier").eq("id", orgId).single(),
       supabase.from("volunteers").select("id", { count: "exact", head: true }).eq("org_id", orgId),
       supabase.from("events").select("id", { count: "exact", head: true }).eq("org_id", orgId).in("status", ["upcoming", "active"]),
-      supabase.from("profiles").select("id", { count: "exact", head: true }).eq("org_id", orgId).in("role", ["owner", "admin"]),
+      supabase.from("profiles").select("id", { count: "exact", head: true }).eq("org_id", orgId),
       supabase.from("committees").select("id", { count: "exact", head: true }).eq("org_id", orgId),
     ]);
 
@@ -74,7 +74,7 @@ export function usePlan(): PlanState {
     setCounts({
       volunteers: volRes.count ?? 0,
       activeEvents: eventRes.count ?? 0,
-      admins: adminRes.count ?? 0,
+      users: userRes.count ?? 0,
       committees: committeeRes.count ?? 0,
     });
 
@@ -86,7 +86,7 @@ export function usePlan(): PlanState {
   }, [fetchTierAndCounts]);
 
   const canAdd = useCallback(
-    (resource: "volunteers" | "activeEvents" | "admins" | "committees") => {
+    (resource: "volunteers" | "activeEvents" | "users" | "committees") => {
       const limitKey = LIMIT_MAP[resource];
       const max = limits[limitKey];
       return counts[resource] < max;
@@ -95,7 +95,7 @@ export function usePlan(): PlanState {
   );
 
   const usageLabel = useCallback(
-    (resource: "volunteers" | "activeEvents" | "admins" | "committees") => {
+    (resource: "volunteers" | "activeEvents" | "users" | "committees") => {
       const limitKey = LIMIT_MAP[resource];
       const max = limits[limitKey];
       return `${counts[resource]}/${formatLimit(max)}`;

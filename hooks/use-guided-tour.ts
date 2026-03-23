@@ -16,6 +16,14 @@ export interface TourStep {
 
 export const TOUR_STEPS: TourStep[] = [
   {
+    id: "setup",
+    title: "First, complete your setup",
+    description:
+      "Head to Settings to confirm your organization name and invite any team members. You can update these anytime.",
+    page: "/settings",
+    target: "[data-tour='settings-panel']",
+  },
+  {
     id: "welcome",
     title: "Welcome to GoodTally!",
     description:

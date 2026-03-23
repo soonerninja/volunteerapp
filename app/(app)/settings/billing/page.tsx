@@ -45,12 +45,12 @@ const RESOURCE_ITEMS = [
   { key: "volunteers" as const, label: "Volunteers", limitKey: "maxVolunteers" as const, icon: Users },
   { key: "activeEvents" as const, label: "Active Events", limitKey: "maxActiveEvents" as const, icon: Calendar },
   { key: "committees" as const, label: "Committees", limitKey: "maxCommittees" as const, icon: UsersRound },
-  { key: "admins" as const, label: "Admin Users", limitKey: "maxAdmins" as const, icon: Shield },
+  { key: "users" as const, label: "Users", limitKey: "maxUsers" as const, icon: Shield },
 ];
 
 const FEATURE_ITEMS = [
-  { key: "exports" as const, label: "CSV Export & Reports", icon: FileDown },
   { key: "auditLog" as const, label: "Audit Log", icon: ScrollText },
+  { key: "exports" as const, label: "CSV Export & Reports", icon: FileDown },
   { key: "customBranding" as const, label: "Custom Branding", icon: Paintbrush },
   { key: "prioritySupport" as const, label: "Priority Support", icon: Headphones },
 ];

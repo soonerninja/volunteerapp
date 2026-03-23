@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Lock, Mail, Shield, CheckCircle, AlertCircle } from "lucide-react";
+import { Lock, Mail, Shield, CheckCircle, AlertCircle, User } from "lucide-react";
 
 type MessageType = { text: string; type: "success" | "error" } | null;
 
@@ -33,8 +33,13 @@ function StatusMessage({ message }: { message: MessageType }) {
 }
 
 export default function AccountPage() {
-  const { user } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const supabase = createClient();
+
+  // Change display name state
+  const [displayName, setDisplayName] = useState(profile?.full_name ?? "");
+  const [nameLoading, setNameLoading] = useState(false);
+  const [nameMsg, setNameMsg] = useState<MessageType>(null);
 
   // Change password state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -48,6 +53,35 @@ export default function AccountPage() {
   const [emailPassword, setEmailPassword] = useState("");
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailMsg, setEmailMsg] = useState<MessageType>(null);
+
+  const handleChangeName = async () => {
+    setNameMsg(null);
+    const trimmed = displayName.trim();
+    if (trimmed.length < 2) {
+      setNameMsg({ text: "Name must be at least 2 characters.", type: "error" });
+      return;
+    }
+    if (trimmed.includes("@")) {
+      setNameMsg({ text: "Name cannot contain an @ symbol.", type: "error" });
+      return;
+    }
+    if (trimmed === profile?.full_name) {
+      setNameMsg({ text: "That's already your current name.", type: "error" });
+      return;
+    }
+    setNameLoading(true);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ full_name: trimmed })
+      .eq("id", user?.id ?? "");
+    if (error) {
+      setNameMsg({ text: error.message || "Failed to update name.", type: "error" });
+    } else {
+      await refreshProfile();
+      setNameMsg({ text: "Display name updated.", type: "success" });
+    }
+    setNameLoading(false);
+  };
 
   const handleChangePassword = async () => {
     setPasswordMsg(null);
@@ -212,6 +246,38 @@ export default function AccountPage() {
               </div>
             )}
           </div>
+        </div>
+      </Card>
+
+      {/* Change Display Name */}
+      <Card>
+        <div className="flex items-center gap-3 mb-4">
+          <User className="h-5 w-5 text-gray-400" aria-hidden="true" />
+          <h2 className="text-lg font-semibold text-gray-900">Display Name</h2>
+        </div>
+
+        <div className="max-w-md space-y-4">
+          <Input
+            label="Full Name"
+            id="display_name"
+            type="text"
+            placeholder="Your name"
+            value={displayName}
+            onChange={(e) => {
+              setDisplayName(e.target.value);
+              setNameMsg(null);
+            }}
+          />
+
+          <StatusMessage message={nameMsg} />
+
+          <Button
+            onClick={handleChangeName}
+            loading={nameLoading}
+            disabled={!displayName.trim()}
+          >
+            Update Name
+          </Button>
         </div>
       </Card>
 

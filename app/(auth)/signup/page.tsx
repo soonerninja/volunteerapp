@@ -20,6 +20,17 @@ export default function SignupPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+
+    const trimmedName = fullName.trim();
+    if (trimmedName.length < 2) {
+      setError("Please enter your full name (at least 2 characters).");
+      return;
+    }
+    if (trimmedName.includes("@")) {
+      setError("Name cannot contain an @ symbol. Please enter your real name.");
+      return;
+    }
+
     setLoading(true);
 
     const { error } = await supabase.auth.signUp({
@@ -27,7 +38,7 @@ export default function SignupPage() {
       password,
       options: {
         data: {
-          full_name: fullName,
+          full_name: trimmedName,
         },
         emailRedirectTo: `${window.location.origin}/auth/callback`,
       },

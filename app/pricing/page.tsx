@@ -40,9 +40,9 @@ const FEATURES = [
   { key: "maxVolunteers", label: "Volunteers", icon: Users },
   { key: "maxActiveEvents", label: "Active events", icon: Calendar },
   { key: "maxCommittees", label: "Committees", icon: UsersRound },
-  { key: "maxAdmins", label: "Admin users", icon: Shield },
-  { key: "exports", label: "CSV export & reports", icon: FileDown },
+  { key: "maxUsers", label: "Users", icon: Shield },
   { key: "auditLog", label: "Audit log", icon: ScrollText },
+  { key: "exports", label: "CSV export & reports", icon: FileDown },
   { key: "customBranding", label: "Custom branding", icon: Paintbrush },
   { key: "prioritySupport", label: "Priority support", icon: Headphones },
 ] as const;

@@ -7,7 +7,7 @@ export interface PlanConfig {
   priceLabel: string;
   maxVolunteers: number;
   maxActiveEvents: number;
-  maxAdmins: number;
+  maxUsers: number;
   maxCommittees: number;
   exports: boolean;
   auditLog: boolean;
@@ -23,7 +23,7 @@ export const PLAN_LIMITS: Record<OrganizationTier, PlanConfig> = {
     priceLabel: "Free forever",
     maxVolunteers: 10,
     maxActiveEvents: 1,
-    maxAdmins: 2,
+    maxUsers: 1,
     maxCommittees: 2,
     exports: false,
     auditLog: false,
@@ -37,7 +37,7 @@ export const PLAN_LIMITS: Record<OrganizationTier, PlanConfig> = {
     priceLabel: "$40/year",
     maxVolunteers: 50,
     maxActiveEvents: 10,
-    maxAdmins: 2,
+    maxUsers: 2,
     maxCommittees: 10,
     exports: false,
     auditLog: true,
@@ -51,7 +51,7 @@ export const PLAN_LIMITS: Record<OrganizationTier, PlanConfig> = {
     priceLabel: "$80/year",
     maxVolunteers: Infinity,
     maxActiveEvents: Infinity,
-    maxAdmins: 10,
+    maxUsers: 10,
     maxCommittees: Infinity,
     exports: true,
     auditLog: true,
