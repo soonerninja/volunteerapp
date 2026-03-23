@@ -56,11 +56,11 @@ export default function SignupPage() {
 
   if (success) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-blue-50 to-white px-4">
         <div className="w-full max-w-sm text-center">
-          <div className="mb-4 rounded-full bg-green-50 p-3 inline-block">
+          <div className="mb-4 inline-block rounded-full bg-green-50 p-3">
             <svg
-              className="h-6 w-6 text-green-600 mx-auto"
+              className="mx-auto h-6 w-6 text-green-600"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -92,59 +92,13 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold text-gray-900">[App Name]</h1>
-          <p className="mt-2 text-sm text-gray-600">
-            Create your free account
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
-            <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
-              {error}
-            </div>
-          )}
-
-          <Input
-            id="full_name"
-            label="Full name"
-            type="text"
-            placeholder="Jane Smith"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            required
-          />
-
-          <Input
-            id="email"
-            label="Email"
-            type="email"
-            placeholder="you@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-
-          <Input
-            id="password"
-            label="Password"
-            type="password"
-            placeholder="At least 6 characters"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            minLength={6}
-            required
-          />
-
-          <Button type="submit" loading={loading} className="w-full">
-            Create Account
-          </Button>
-        </form>
-
-        <p className="mt-6 text-center text-sm text-gray-600">
+    <div className="flex min-h-screen flex-col bg-gradient-to-b from-blue-50 to-white">
+      {/* Header */}
+      <header className="flex items-center justify-between px-6 py-4">
+        <Link href="/" className="text-lg font-bold text-blue-600">
+          GoodTally
+        </Link>
+        <p className="text-sm text-gray-500">
           Already have an account?{" "}
           <Link
             href="/login"
@@ -153,6 +107,73 @@ export default function SignupPage() {
             Sign in
           </Link>
         </p>
+      </header>
+
+      {/* Form */}
+      <div className="flex flex-1 items-center justify-center px-4 pb-16">
+        <div className="w-full max-w-sm">
+          <div className="mb-8 text-center">
+            <h1 className="text-2xl font-bold text-gray-900">
+              Create your account
+            </h1>
+            <p className="mt-2 text-sm text-gray-500">
+              Free forever for small teams. Get started in seconds.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div
+                  role="alert"
+                  className="rounded-lg bg-red-50 p-3 text-sm text-red-700"
+                >
+                  {error}
+                </div>
+              )}
+
+              <Input
+                id="full_name"
+                label="Full name"
+                type="text"
+                placeholder="Jane Smith"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                required
+                autoFocus
+              />
+
+              <Input
+                id="email"
+                label="Email"
+                type="email"
+                placeholder="you@nonprofit.org"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+
+              <Input
+                id="password"
+                label="Password"
+                type="password"
+                placeholder="At least 6 characters"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                minLength={6}
+                required
+              />
+
+              <Button type="submit" loading={loading} className="w-full">
+                Create Account
+              </Button>
+            </form>
+          </div>
+
+          <p className="mt-4 text-center text-xs text-gray-400">
+            By signing up you agree to our terms of service.
+          </p>
+        </div>
       </div>
     </div>
   );

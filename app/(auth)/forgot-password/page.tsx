@@ -34,8 +34,23 @@ export default function ForgotPasswordPage() {
 
   if (success) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-blue-50 to-white px-4">
         <div className="w-full max-w-sm text-center">
+          <div className="mb-4 inline-block rounded-full bg-green-50 p-3">
+            <svg
+              className="mx-auto h-6 w-6 text-green-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 19v-8.93a2 2 0 01.89-1.664l7-4.666a2 2 0 012.22 0l7 4.666A2 2 0 0121 10.07V19M3 19a2 2 0 002 2h14a2 2 0 002-2M3 19l6.75-4.5M21 19l-6.75-4.5M3 10l6.75 4.5M21 10l-6.75 4.5m0 0l-1.14.76a2 2 0 01-2.22 0l-1.14-.76"
+              />
+            </svg>
+          </div>
           <h2 className="text-lg font-semibold text-gray-900">
             Check your email
           </h2>
@@ -55,36 +70,13 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold text-gray-900">[App Name]</h1>
-          <p className="mt-2 text-sm text-gray-600">Reset your password</p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
-            <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
-              {error}
-            </div>
-          )}
-
-          <Input
-            id="email"
-            label="Email"
-            type="email"
-            placeholder="you@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-
-          <Button type="submit" loading={loading} className="w-full">
-            Send Reset Link
-          </Button>
-        </form>
-
-        <p className="mt-6 text-center text-sm text-gray-600">
+    <div className="flex min-h-screen flex-col bg-gradient-to-b from-blue-50 to-white">
+      {/* Header */}
+      <header className="flex items-center justify-between px-6 py-4">
+        <Link href="/" className="text-lg font-bold text-blue-600">
+          GoodTally
+        </Link>
+        <p className="text-sm text-gray-500">
           Remember your password?{" "}
           <Link
             href="/login"
@@ -93,6 +85,48 @@ export default function ForgotPasswordPage() {
             Sign in
           </Link>
         </p>
+      </header>
+
+      {/* Form */}
+      <div className="flex flex-1 items-center justify-center px-4 pb-16">
+        <div className="w-full max-w-sm">
+          <div className="mb-8 text-center">
+            <h1 className="text-2xl font-bold text-gray-900">
+              Reset your password
+            </h1>
+            <p className="mt-2 text-sm text-gray-500">
+              Enter your email and we&apos;ll send a reset link
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div
+                  role="alert"
+                  className="rounded-lg bg-red-50 p-3 text-sm text-red-700"
+                >
+                  {error}
+                </div>
+              )}
+
+              <Input
+                id="email"
+                label="Email"
+                type="email"
+                placeholder="you@nonprofit.org"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoFocus
+              />
+
+              <Button type="submit" loading={loading} className="w-full">
+                Send Reset Link
+              </Button>
+            </form>
+          </div>
+        </div>
       </div>
     </div>
   );
