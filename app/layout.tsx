@@ -3,7 +3,7 @@ import { ToastProvider } from "@/components/ui/toast";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "VolunteerHub - Volunteer Management for Nonprofits",
+  title: "GoodTally - Volunteer Management for Nonprofits",
   description:
     "Simple, affordable volunteer management for small nonprofits. Track volunteers, hours, events, and committees.",
 };

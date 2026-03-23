@@ -8,6 +8,13 @@ export interface Organization {
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   max_volunteers: number;
+  description: string | null;
+  contact_email: string | null;
+  phone: string | null;
+  city: string | null;
+  state: string | null;
+  timezone: string | null;
+  fiscal_year_start: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -79,6 +86,17 @@ export interface VolunteerCommittee {
   committee_id: string;
   role: string;
   joined_at: string;
+}
+
+export interface CommitteePriority {
+  id: string;
+  committee_id: string;
+  org_id: string;
+  text: string;
+  due_date: string | null;
+  completed: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export type EventStatus = "upcoming" | "active" | "completed" | "cancelled";

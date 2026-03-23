@@ -5,7 +5,7 @@ export default function HomePage() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-blue-50 to-white px-4">
       <div className="text-center">
         <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl">
-          <span className="text-blue-600">VolunteerHub</span>
+          <span className="text-blue-600">GoodTally</span>
         </h1>
         <p className="mt-4 text-lg text-gray-600 max-w-xl mx-auto">
           Simple, affordable volunteer management for small nonprofits. Track

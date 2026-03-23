@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PlanLimitBadge, UpgradePrompt } from "@/components/ui/upgrade-prompt";
 import { VolunteerSearchSelect } from "@/components/ui/volunteer-search-select";
-import type { Committee, Volunteer } from "@/types/database";
+import type { Committee, Volunteer, CommitteePriority } from "@/types/database";
 import {
   UsersRound,
   Plus,
@@ -18,9 +18,11 @@ import {
   Edit2,
   Trash2,
   Users,
+  Check,
+  Square,
+  CheckSquare,
 } from "lucide-react";
 
-type CommitteeWithCount = Committee & { member_count: number };
 type CommitteeMember = {
   volunteer_id: string;
   role: string;
@@ -28,43 +30,161 @@ type CommitteeMember = {
   volunteers: { id: string; first_name: string; last_name: string };
 };
 
+type CommitteeWithDetails = Committee & {
+  member_count: number;
+  members: CommitteeMember[];
+  priorities: CommitteePriority[];
+};
+
+// Avatar color palette
+const AVATAR_COLORS = [
+  "bg-blue-500",
+  "bg-green-500",
+  "bg-purple-500",
+  "bg-amber-500",
+  "bg-rose-500",
+  "bg-teal-500",
+  "bg-indigo-500",
+  "bg-orange-500",
+];
+
+function getAvatarColor(name: string) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
+function getInitials(firstName: string, lastName: string) {
+  return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+}
+
+function getDueDateLabel(dateStr: string | null): {
+  label: string;
+  className: string;
+} {
+  if (!dateStr) return { label: "", className: "" };
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(dateStr + "T00:00:00");
+  const diffDays = Math.ceil(
+    (due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  if (diffDays < 0) {
+    return { label: "Overdue", className: "text-red-600 font-medium" };
+  }
+  if (diffDays <= 7) {
+    return {
+      label: due.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      className: "text-amber-600 font-medium",
+    };
+  }
+  return {
+    label: due.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    className: "text-gray-400",
+  };
+}
+
 export default function CommitteesPage() {
   const { supabase, orgId, profile } = useOrg();
   const { canEdit, canDelete: canDeletePerm } = usePermissions();
   const { canAdd, usageLabel, refreshCounts } = usePlan();
 
-  const [committees, setCommittees] = useState<CommitteeWithCount[]>([]);
+  const [committees, setCommittees] = useState<CommitteeWithDetails[]>([]);
   const [volunteers, setVolunteers] = useState<Volunteer[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [editingCommittee, setEditingCommittee] = useState<Committee | null>(null);
+  const [editingCommittee, setEditingCommittee] = useState<Committee | null>(
+    null
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const firstInputRef = useRef<HTMLInputElement>(null);
 
   // Members panel
   const [selectedCommittee, setSelectedCommittee] =
-    useState<CommitteeWithCount | null>(null);
+    useState<CommitteeWithDetails | null>(null);
   const [members, setMembers] = useState<CommitteeMember[]>([]);
+
+  // Priority add form
+  const [addingPriorityFor, setAddingPriorityFor] = useState<string | null>(
+    null
+  );
+  const [newPriorityText, setNewPriorityText] = useState("");
+  const [newPriorityDate, setNewPriorityDate] = useState("");
+  const priorityInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({ name: "", description: "" });
 
   const fetchCommittees = useCallback(async () => {
     if (!orgId) return;
     setLoading(true);
-    const { data } = await supabase
+
+    // Fetch committees with member count
+    const { data: committeeData } = await supabase
       .from("committees")
       .select("*, volunteer_committees(count)")
       .eq("org_id", orgId)
       .order("name");
 
-    const committeesWithCount: CommitteeWithCount[] = (data || []).map((c) => ({
-      ...c,
-      member_count: Array.isArray(c.volunteer_committees)
-        ? c.volunteer_committees[0]?.count ?? 0
-        : 0,
-    }));
-    setCommittees(committeesWithCount);
+    const committeeIds = (committeeData || []).map((c) => c.id);
+
+    // Fetch members for all committees (chair first, then members)
+    const { data: memberData } = await supabase
+      .from("volunteer_committees")
+      .select(
+        "volunteer_id, committee_id, role, joined_at, volunteers(id, first_name, last_name)"
+      )
+      .in("committee_id", committeeIds.length > 0 ? committeeIds : ["none"]);
+
+    // Fetch priorities for all committees
+    const { data: priorityData } = await supabase
+      .from("committee_priorities")
+      .select("*")
+      .in("committee_id", committeeIds.length > 0 ? committeeIds : ["none"])
+      .order("completed")
+      .order("due_date", { ascending: true, nullsFirst: false });
+
+    const membersByCommittee = new Map<string, CommitteeMember[]>();
+    for (const m of (memberData as unknown as (CommitteeMember & {
+      committee_id: string;
+    })[]) || []) {
+      const existing = membersByCommittee.get(m.committee_id) || [];
+      existing.push(m);
+      membersByCommittee.set(m.committee_id, existing);
+    }
+
+    const prioritiesByCommittee = new Map<string, CommitteePriority[]>();
+    for (const p of (priorityData as CommitteePriority[]) || []) {
+      const existing = prioritiesByCommittee.get(p.committee_id) || [];
+      existing.push(p);
+      prioritiesByCommittee.set(p.committee_id, existing);
+    }
+
+    const committeesWithDetails: CommitteeWithDetails[] = (
+      committeeData || []
+    ).map((c) => {
+      const rawMembers = membersByCommittee.get(c.id) || [];
+      // Sort: chairs first
+      const sortedMembers = [...rawMembers].sort((a, b) => {
+        if (a.role === "Chair" && b.role !== "Chair") return -1;
+        if (a.role !== "Chair" && b.role === "Chair") return 1;
+        return 0;
+      });
+
+      return {
+        ...c,
+        member_count: Array.isArray(c.volunteer_committees)
+          ? c.volunteer_committees[0]?.count ?? 0
+          : 0,
+        members: sortedMembers,
+        priorities: prioritiesByCommittee.get(c.id) || [],
+      };
+    });
+
+    setCommittees(committeesWithDetails);
     setLoading(false);
   }, [orgId, supabase]);
 
@@ -89,6 +209,12 @@ export default function CommitteesPage() {
       setTimeout(() => firstInputRef.current?.focus(), 50);
     }
   }, [showForm]);
+
+  useEffect(() => {
+    if (addingPriorityFor) {
+      setTimeout(() => priorityInputRef.current?.focus(), 50);
+    }
+  }, [addingPriorityFor]);
 
   const resetForm = () => {
     setForm({ name: "", description: "" });
@@ -198,7 +324,7 @@ export default function CommitteesPage() {
   };
 
   // --- Members Management ---
-  const openMembersPanel = async (c: CommitteeWithCount) => {
+  const openMembersPanel = async (c: CommitteeWithDetails) => {
     setSelectedCommittee(c);
     setError("");
     const { data } = await supabase
@@ -259,21 +385,95 @@ export default function CommitteesPage() {
     }
   };
 
+  // --- Priority Management ---
+  const addPriority = async (committeeId: string) => {
+    if (!orgId || !newPriorityText.trim()) return;
+
+    const { error: insertErr } = await supabase
+      .from("committee_priorities")
+      .insert({
+        committee_id: committeeId,
+        org_id: orgId,
+        text: newPriorityText.trim(),
+        due_date: newPriorityDate || null,
+      });
+
+    if (insertErr) {
+      setError(insertErr.message);
+      return;
+    }
+
+    setNewPriorityText("");
+    setNewPriorityDate("");
+    setAddingPriorityFor(null);
+    fetchCommittees();
+  };
+
+  const togglePriority = async (priority: CommitteePriority) => {
+    const { error: updateErr } = await supabase
+      .from("committee_priorities")
+      .update({ completed: !priority.completed })
+      .eq("id", priority.id);
+
+    if (updateErr) {
+      setError(updateErr.message);
+      return;
+    }
+
+    fetchCommittees();
+  };
+
+  const deletePriority = async (priorityId: string) => {
+    const { error: delErr } = await supabase
+      .from("committee_priorities")
+      .delete()
+      .eq("id", priorityId);
+
+    if (delErr) {
+      setError(delErr.message);
+      return;
+    }
+    fetchCommittees();
+  };
+
   const assignedMemberIds = members.map((m) => m.volunteer_id);
+
+  // Summary stats
+  const totalMembers = committees.reduce((sum, c) => sum + c.member_count, 0);
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-gray-900">Committees</h1>
-          <PlanLimitBadge usage={usageLabel("committees")} atLimit={!canAdd("committees")} />
+      {/* Page Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-gray-900">Committees</h1>
+            <PlanLimitBadge
+              usage={usageLabel("committees")}
+              atLimit={!canAdd("committees")}
+            />
+          </div>
+          {!loading && committees.length > 0 && (
+            <p className="mt-1 text-sm text-gray-500">
+              {committees.length} committee{committees.length !== 1 ? "s" : ""}{" "}
+              &middot; {totalMembers} volunteer
+              {totalMembers !== 1 ? "s" : ""} assigned
+            </p>
+          )}
         </div>
         {canEdit && (
           <div className="flex items-center gap-3">
             {!canAdd("committees") && (
-              <UpgradePrompt requiredTier="starter" feature="create more committees" variant="inline" />
+              <UpgradePrompt
+                requiredTier="starter"
+                feature="create more committees"
+                variant="inline"
+              />
             )}
-            <Button onClick={() => setShowForm(true)} disabled={!canAdd("committees")}>
+            <Button
+              onClick={() => setShowForm(true)}
+              disabled={!canAdd("committees")}
+            >
               <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
               Create Committee
             </Button>
@@ -283,7 +483,10 @@ export default function CommitteesPage() {
 
       {/* Page-level error */}
       {error && !showForm && !selectedCommittee && (
-        <div role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+        <div
+          role="alert"
+          className="rounded-lg bg-red-50 p-3 text-sm text-red-600"
+        >
           {error}
         </div>
       )}
@@ -295,11 +498,16 @@ export default function CommitteesPage() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="committee-form-title"
-          onKeyDown={(e) => { if (e.key === "Escape") resetForm(); }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") resetForm();
+          }}
         >
           <Card className="w-full max-w-md">
             <div className="mb-4 flex items-center justify-between">
-              <h2 id="committee-form-title" className="text-lg font-semibold text-gray-900">
+              <h2
+                id="committee-form-title"
+                className="text-lg font-semibold text-gray-900"
+              >
                 {editingCommittee ? "Edit Committee" : "Create Committee"}
               </h2>
               <button
@@ -312,7 +520,10 @@ export default function CommitteesPage() {
             </div>
 
             {error && !selectedCommittee && (
-              <div role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
+              <div
+                role="alert"
+                className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600"
+              >
                 {error}
               </div>
             )}
@@ -356,23 +567,29 @@ export default function CommitteesPage() {
         </div>
       )}
 
-      {/* Members Panel */}
+      {/* Members Panel Modal */}
       {selectedCommittee && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="members-panel-title"
-          onKeyDown={(e) => { if (e.key === "Escape") setSelectedCommittee(null); }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setSelectedCommittee(null);
+          }}
         >
           <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h2 id="members-panel-title" className="text-lg font-semibold text-gray-900">
+                <h2
+                  id="members-panel-title"
+                  className="text-lg font-semibold text-gray-900"
+                >
                   {selectedCommittee.name}
                 </h2>
                 <p className="text-sm text-gray-500">
-                  {selectedCommittee.description || "Manage committee members"}
+                  {selectedCommittee.description ||
+                    "Manage committee members"}
                 </p>
               </div>
               <button
@@ -385,7 +602,10 @@ export default function CommitteesPage() {
             </div>
 
             {error && selectedCommittee && (
-              <div role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
+              <div
+                role="alert"
+                className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600"
+              >
                 {error}
               </div>
             )}
@@ -421,8 +641,12 @@ export default function CommitteesPage() {
                       <p className="font-medium text-gray-900">
                         {m.volunteers.first_name} {m.volunteers.last_name}
                       </p>
-                      <label className="sr-only" htmlFor={`role-${m.volunteer_id}`}>
-                        Role for {m.volunteers.first_name} {m.volunteers.last_name}
+                      <label
+                        className="sr-only"
+                        htmlFor={`role-${m.volunteer_id}`}
+                      >
+                        Role for {m.volunteers.first_name}{" "}
+                        {m.volunteers.last_name}
                       </label>
                       <input
                         id={`role-${m.volunteer_id}`}
@@ -438,7 +662,9 @@ export default function CommitteesPage() {
                             )
                           );
                         }}
-                        onBlur={(e) => updateMemberRole(m.volunteer_id, e.target.value)}
+                        onBlur={(e) =>
+                          updateMemberRole(m.volunteer_id, e.target.value)
+                        }
                         className="w-28 rounded border border-gray-200 px-2 py-1 text-xs text-gray-600 focus:border-blue-500 focus:outline-none"
                         placeholder="Role"
                       />
@@ -461,7 +687,11 @@ export default function CommitteesPage() {
       {/* Committee List */}
       {loading ? (
         <div className="flex justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" role="status" aria-label="Loading committees" />
+          <div
+            className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"
+            role="status"
+            aria-label="Loading committees"
+          />
         </div>
       ) : committees.length === 0 ? (
         <EmptyState
@@ -469,57 +699,247 @@ export default function CommitteesPage() {
           title="No committees yet"
           description="Create committees to organize your volunteers into working groups."
           action={
-            <Button size="sm" onClick={() => setShowForm(true)}>
-              <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
-              Create Committee
-            </Button>
+            canEdit ? (
+              <Button size="sm" onClick={() => setShowForm(true)}>
+                <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+                Create Committee
+              </Button>
+            ) : undefined
           }
         />
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="space-y-4">
           {committees.map((c) => (
-            <Card
-              key={c.id}
-              className="cursor-pointer transition-shadow hover:shadow-md"
-              onClick={() => openMembersPanel(c)}
-            >
-              <div className="flex items-start justify-between">
-                <div className="min-w-0 flex-1">
-                  <h3 className="font-medium text-gray-900">{c.name}</h3>
-                  {c.description && (
-                    <p className="mt-1 text-sm text-gray-500 line-clamp-2">
-                      {c.description}
-                    </p>
-                  )}
-                  <div className="mt-3 flex items-center gap-1 text-sm text-gray-500">
-                    <Users className="h-4 w-4" aria-hidden="true" />
-                    <span>
-                      {c.member_count} member{c.member_count !== 1 && "s"}
-                    </span>
-                  </div>
-                </div>
-                {canEdit && (
-                  <div
-                    className="flex gap-1"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <button
-                      onClick={() => openEdit(c)}
-                      className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                      aria-label={`Edit ${c.name}`}
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </button>
-                    {canDeletePerm && (
-                      <button
-                        onClick={() => handleDelete(c)}
-                        className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600"
-                        aria-label={`Delete ${c.name}`}
+            <Card key={c.id} padding="sm" className="overflow-hidden">
+              {/* Top Section: Header */}
+              <div className="p-4 pb-0 sm:p-5 sm:pb-0">
+                <div className="flex items-start justify-between gap-4">
+                  {/* Left: Name, badge, description */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2.5">
+                      <h3
+                        className="cursor-pointer font-semibold text-gray-900 hover:text-blue-600"
+                        onClick={() => openMembersPanel(c)}
                       >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                        {c.name}
+                      </h3>
+                      <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+                        {c.member_count} member
+                        {c.member_count !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                    {c.description && (
+                      <p className="mt-1 text-sm text-gray-500 line-clamp-1">
+                        {c.description}
+                      </p>
                     )}
                   </div>
+
+                  {/* Right: Avatars + Actions */}
+                  <div className="flex items-center gap-3">
+                    {/* Member avatars */}
+                    {c.members.length > 0 && (
+                      <div
+                        className="hidden sm:flex items-center -space-x-1.5 cursor-pointer"
+                        onClick={() => openMembersPanel(c)}
+                        title="View members"
+                      >
+                        {c.members.slice(0, 3).map((m) => {
+                          const name = `${m.volunteers.first_name} ${m.volunteers.last_name}`;
+                          return (
+                            <div
+                              key={m.volunteer_id}
+                              className={`flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-semibold text-white ring-2 ring-white ${getAvatarColor(name)}`}
+                              title={`${name}${m.role === "Chair" ? " (Chair)" : ""}`}
+                            >
+                              {getInitials(
+                                m.volunteers.first_name,
+                                m.volunteers.last_name
+                              )}
+                            </div>
+                          );
+                        })}
+                        {c.members.length > 3 && (
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-200 text-[10px] font-semibold text-gray-600 ring-2 ring-white">
+                            +{c.members.length - 3}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Edit / Delete buttons */}
+                    {canEdit && (
+                      <div className="flex gap-0.5">
+                        <button
+                          onClick={() => openEdit(c)}
+                          className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                          aria-label={`Edit ${c.name}`}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </button>
+                        {canDeletePerm && (
+                          <button
+                            onClick={() => handleDelete(c)}
+                            className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                            aria-label={`Delete ${c.name}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Section: Priorities */}
+              <div className="mt-3 border-t border-gray-100 px-4 py-3 sm:px-5">
+                {c.priorities.length === 0 && !canEdit ? (
+                  <p className="text-sm text-gray-400 italic">
+                    No priorities set
+                  </p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {c.priorities.slice(0, 3).map((p) => {
+                      const dueInfo = getDueDateLabel(p.due_date);
+                      return (
+                        <div
+                          key={p.id}
+                          className="group flex items-center gap-3"
+                        >
+                          {/* Checkbox */}
+                          {canEdit ? (
+                            <button
+                              onClick={() => togglePriority(p)}
+                              className="flex-shrink-0 text-gray-400 hover:text-blue-600"
+                              aria-label={
+                                p.completed
+                                  ? `Mark "${p.text}" incomplete`
+                                  : `Mark "${p.text}" complete`
+                              }
+                            >
+                              {p.completed ? (
+                                <CheckSquare className="h-4 w-4 text-green-500" />
+                              ) : (
+                                <Square className="h-4 w-4" />
+                              )}
+                            </button>
+                          ) : (
+                            <span className="flex-shrink-0">
+                              {p.completed ? (
+                                <CheckSquare className="h-4 w-4 text-green-500" />
+                              ) : (
+                                <Square className="h-4 w-4 text-gray-300" />
+                              )}
+                            </span>
+                          )}
+
+                          {/* Task text */}
+                          <span
+                            className={`flex-1 text-sm ${
+                              p.completed
+                                ? "text-gray-400 line-through"
+                                : "text-gray-700"
+                            }`}
+                          >
+                            {p.text}
+                          </span>
+
+                          {/* Due date */}
+                          {dueInfo.label && (
+                            <span
+                              className={`flex-shrink-0 text-xs ${
+                                p.completed ? "text-gray-300" : dueInfo.className
+                              }`}
+                            >
+                              {dueInfo.label}
+                            </span>
+                          )}
+
+                          {/* Delete priority (on hover) */}
+                          {canEdit && (
+                            <button
+                              onClick={() => deletePriority(p.id)}
+                              className="flex-shrink-0 opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-opacity"
+                              aria-label={`Delete priority "${p.text}"`}
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {c.priorities.length > 3 && (
+                      <p className="text-xs text-gray-400 pl-7">
+                        +{c.priorities.length - 3} more
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Add priority inline form */}
+                {canEdit && addingPriorityFor === c.id ? (
+                  <div className="mt-2 flex items-center gap-2">
+                    <input
+                      ref={priorityInputRef}
+                      type="text"
+                      value={newPriorityText}
+                      onChange={(e) => setNewPriorityText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addPriority(c.id);
+                        }
+                        if (e.key === "Escape") {
+                          setAddingPriorityFor(null);
+                          setNewPriorityText("");
+                          setNewPriorityDate("");
+                        }
+                      }}
+                      placeholder="Priority text..."
+                      className="flex-1 rounded border border-gray-200 px-2.5 py-1.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                    <input
+                      type="date"
+                      value={newPriorityDate}
+                      onChange={(e) => setNewPriorityDate(e.target.value)}
+                      className="rounded border border-gray-200 px-2 py-1.5 text-sm text-gray-600 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                    <button
+                      onClick={() => addPriority(c.id)}
+                      disabled={!newPriorityText.trim()}
+                      className="rounded-lg bg-blue-600 p-1.5 text-white hover:bg-blue-700 disabled:opacity-50"
+                      aria-label="Save priority"
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setAddingPriorityFor(null);
+                        setNewPriorityText("");
+                        setNewPriorityDate("");
+                      }}
+                      className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100"
+                      aria-label="Cancel"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  canEdit && (
+                    <button
+                      onClick={() => {
+                        setAddingPriorityFor(c.id);
+                        setNewPriorityText("");
+                        setNewPriorityDate("");
+                      }}
+                      className="mt-2 flex items-center gap-1 text-xs text-gray-400 hover:text-blue-600"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Add priority
+                    </button>
+                  )
                 )}
               </div>
             </Card>

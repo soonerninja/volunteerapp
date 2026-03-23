@@ -20,6 +20,7 @@ import {
   Clock,
   Trash2,
   Database,
+  AlertTriangle,
 } from "lucide-react";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -42,6 +43,32 @@ const INVITABLE_ROLES = [
   { value: "viewer", label: "Viewer" },
 ];
 
+const US_STATES = [
+  "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA",
+  "HI","ID","IL","IN","IA","KS","KY","LA","ME","MD",
+  "MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ",
+  "NM","NY","NC","ND","OH","OK","OR","PA","RI","SC",
+  "SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC",
+];
+
+const MONTHS = [
+  "January","February","March","April","May","June",
+  "July","August","September","October","November","December",
+];
+
+const COMMON_TIMEZONES = [
+  "America/New_York",
+  "America/Chicago",
+  "America/Denver",
+  "America/Los_Angeles",
+  "America/Anchorage",
+  "Pacific/Honolulu",
+  "America/Phoenix",
+  "America/Indiana/Indianapolis",
+  "America/Detroit",
+  "America/Boise",
+];
+
 export default function SettingsPage() {
   const { supabase, orgId, profile, refreshProfile } = useOrg();
   const { canManageTeam, canManageConfig, canEdit } = usePermissions();
@@ -53,8 +80,20 @@ export default function SettingsPage() {
   // Org settings
   const [org, setOrg] = useState<Organization | null>(null);
   const [orgName, setOrgName] = useState("");
+  const [orgDescription, setOrgDescription] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
+  const [timezone, setTimezone] = useState("");
+  const [fiscalYearStart, setFiscalYearStart] = useState(1);
   const [savingOrg, setSavingOrg] = useState(false);
   const [orgMsg, setOrgMsg] = useState("");
+
+  // Delete org
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   // Team
   const [teamMembers, setTeamMembers] = useState<Profile[]>([]);
@@ -96,6 +135,17 @@ export default function SettingsPage() {
     if (data) {
       setOrg(data);
       setOrgName(data.name);
+      setOrgDescription(data.description || "");
+      setContactEmail(data.contact_email || "");
+      setPhone(data.phone || "");
+      setCity(data.city || "");
+      setState(data.state || "");
+      setTimezone(
+        data.timezone ||
+          Intl.DateTimeFormat().resolvedOptions().timeZone ||
+          "America/Chicago"
+      );
+      setFiscalYearStart(data.fiscal_year_start || 1);
     }
   }, [orgId, supabase]);
 
@@ -119,7 +169,10 @@ export default function SettingsPage() {
       .eq("org_id", orgId)
       .eq("status", "pending")
       .order("created_at", { ascending: false });
-    if (error?.message?.includes("schema cache") || error?.message?.includes("does not exist")) {
+    if (
+      error?.message?.includes("schema cache") ||
+      error?.message?.includes("does not exist")
+    ) {
       setInviteTableExists(false);
       return;
     }
@@ -160,28 +213,47 @@ export default function SettingsPage() {
   }, [fetchOrg, fetchTeam, fetchInvites, fetchSkills, fetchRoles]);
 
   // --- Org ---
-  const saveOrgName = async () => {
+  const saveOrg = async () => {
     if (!orgId || !profile || !orgName.trim()) return;
     setSavingOrg(true);
     setOrgMsg("");
 
-    const baseSlug = orgName
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "");
-    const slug = `${baseSlug}-${Math.random().toString(36).slice(2, 10)}`;
+    const nameChanged = orgName.trim() !== org?.name;
+    let slug = org?.slug || "";
+
+    if (nameChanged) {
+      const baseSlug = orgName
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+      slug = `${baseSlug}-${Math.random().toString(36).slice(2, 10)}`;
+    }
+
+    const updates: Record<string, unknown> = {
+      name: orgName.trim(),
+      slug,
+      description: orgDescription.trim() || null,
+      contact_email: contactEmail.trim() || null,
+      phone: phone.trim() || null,
+      city: city.trim() || null,
+      state: state || null,
+      timezone: timezone || null,
+      fiscal_year_start: fiscalYearStart,
+    };
 
     const { error } = await supabase
       .from("organizations")
-      .update({ name: orgName.trim(), slug })
+      .update(updates)
       .eq("id", orgId);
 
     if (error) {
       setOrgMsg(error.message);
     } else {
-      setOrgMsg("Organization name updated.");
-      setOrg((prev) => (prev ? { ...prev, name: orgName.trim(), slug } : prev));
+      setOrgMsg("Settings saved successfully.");
+      setOrg((prev) =>
+        prev ? { ...prev, ...updates, slug } as Organization : prev
+      );
       await supabase.from("audit_log").insert({
         org_id: orgId,
         user_id: profile.id,
@@ -195,24 +267,43 @@ export default function SettingsPage() {
     setSavingOrg(false);
   };
 
+  // --- Delete Org ---
+  const handleDeleteOrg = async () => {
+    if (!orgId || !profile || deleteConfirmName !== org?.name) return;
+    setDeleting(true);
+
+    const { error } = await supabase
+      .from("organizations")
+      .delete()
+      .eq("id", orgId);
+
+    if (error) {
+      setOrgMsg(`Failed to delete: ${error.message}`);
+      setDeleting(false);
+      setShowDeleteModal(false);
+      return;
+    }
+
+    // Sign out after deletion
+    await supabase.auth.signOut();
+    window.location.href = "/login";
+  };
+
   // --- Invites ---
   const sendInvite = async () => {
     if (!orgId || !profile) return;
     const email = inviteEmail.trim().toLowerCase();
 
-    // Validate email
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setInviteError("Please enter a valid email address.");
       return;
     }
 
-    // Check if already a team member
     if (teamMembers.some((m) => m.email?.toLowerCase() === email)) {
       setInviteError("This person is already a team member.");
       return;
     }
 
-    // Check if already invited
     if (invites.some((i) => i.email.toLowerCase() === email)) {
       setInviteError("This email has already been invited.");
       return;
@@ -250,7 +341,9 @@ export default function SettingsPage() {
 
     setInviteEmail("");
     setInviteRole("editor");
-    setInviteSuccess(`Invite sent to ${email}. They'll join your org when they sign up.`);
+    setInviteSuccess(
+      `Invite sent to ${email}. They'll join your org when they sign up.`
+    );
     setInviteLoading(false);
     fetchInvites();
     setTimeout(() => setInviteSuccess(""), 5000);
@@ -303,7 +396,10 @@ export default function SettingsPage() {
 
   const deleteSkill = async (skill: Skill) => {
     if (!confirm(`Delete "${skill.name}" skill?`)) return;
-    const { error } = await supabase.from("skills").delete().eq("id", skill.id);
+    const { error } = await supabase
+      .from("skills")
+      .delete()
+      .eq("id", skill.id);
     if (error) {
       setSkillError(`Failed to delete: ${error.message}`);
       return;
@@ -333,7 +429,10 @@ export default function SettingsPage() {
 
   const deleteRole = async (role: Role) => {
     if (!confirm(`Delete "${role.name}" role?`)) return;
-    const { error } = await supabase.from("roles").delete().eq("id", role.id);
+    const { error } = await supabase
+      .from("roles")
+      .delete()
+      .eq("id", role.id);
     if (error) {
       setRoleError(`Failed to delete: ${error.message}`);
       return;
@@ -343,14 +442,18 @@ export default function SettingsPage() {
 
   const handleSeedData = async () => {
     if (!orgId || !profile) return;
-    if (!confirm("This will add sample volunteers, events, skills, roles, and committees to your organization. Continue?")) return;
+    if (
+      !confirm(
+        "This will add sample volunteers, events, skills, roles, and committees to your organization. Continue?"
+      )
+    )
+      return;
     setSeeding(true);
     setSeedMsg("");
     const result = await seedSampleData(supabase, orgId, profile.id);
     setSeedMsg(result.message);
     setSeeding(false);
     if (result.success) {
-      // Refresh all data
       fetchSkills();
       fetchRoles();
       fetchTeam();
@@ -358,10 +461,30 @@ export default function SettingsPage() {
   };
 
   const allTabs = [
-    { id: "organization" as const, label: "Organization", icon: Building2, minRole: "admin" as const },
-    { id: "team" as const, label: "Team", icon: Users, minRole: "admin" as const },
-    { id: "skills" as const, label: "Skills", icon: Tag, minRole: "editor" as const },
-    { id: "roles" as const, label: "Roles", icon: Shield, minRole: "editor" as const },
+    {
+      id: "organization" as const,
+      label: "Organization",
+      icon: Building2,
+      minRole: "admin" as const,
+    },
+    {
+      id: "team" as const,
+      label: "Team",
+      icon: Users,
+      minRole: "admin" as const,
+    },
+    {
+      id: "skills" as const,
+      label: "Skills",
+      icon: Tag,
+      minRole: "editor" as const,
+    },
+    {
+      id: "roles" as const,
+      label: "Roles",
+      icon: Shield,
+      minRole: "editor" as const,
+    },
   ];
 
   const tabs = allTabs.filter((tab) => {
@@ -370,18 +493,33 @@ export default function SettingsPage() {
     return true;
   });
 
-  // If current tab is no longer visible, switch to first available
   const visibleTabIds = tabs.map((t) => t.id);
   if (!visibleTabIds.includes(activeTab) && tabs.length > 0) {
     setActiveTab(tabs[0].id);
   }
+
+  // Check if org form has changed
+  const orgFormChanged =
+    org &&
+    (orgName !== org.name ||
+      (orgDescription || "") !== (org.description || "") ||
+      (contactEmail || "") !== (org.contact_email || "") ||
+      (phone || "") !== (org.phone || "") ||
+      (city || "") !== (org.city || "") ||
+      (state || "") !== (org.state || "") ||
+      (timezone || "") !== (org.timezone || "") ||
+      fiscalYearStart !== (org.fiscal_year_start || 1));
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
 
       {/* Tabs */}
-      <div className="flex gap-1 rounded-lg bg-gray-100 p-1" role="tablist" aria-label="Settings sections">
+      <div
+        className="flex gap-1 rounded-lg bg-gray-100 p-1"
+        role="tablist"
+        aria-label="Settings sections"
+      >
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -403,81 +541,333 @@ export default function SettingsPage() {
 
       {/* Organization Tab */}
       {activeTab === "organization" && (
-        <Card id="panel-organization" role="tabpanel" aria-labelledby="tab-organization">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            Organization Settings
-          </h2>
-          <div className="max-w-md space-y-4">
-            <Input
-              label="Organization Name"
-              id="org_name"
-              value={orgName}
-              onChange={(e) => setOrgName(e.target.value)}
-            />
-            {org && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <Shield className="h-4 w-4" aria-hidden="true" />
-                  <span>
-                    Plan:{" "}
-                    <span className="font-medium text-gray-700">
-                      {org.tier.charAt(0).toUpperCase() + org.tier.slice(1)}
-                    </span>
-                  </span>
-                </div>
-                <p className="text-sm text-gray-500">
-                  Slug:{" "}
-                  <span className="font-mono text-gray-700">{org.slug}</span>
+        <div className="space-y-6">
+          <Card
+            id="panel-organization"
+            role="tabpanel"
+            aria-labelledby="tab-organization"
+          >
+            <h2 className="mb-4 text-lg font-semibold text-gray-900">
+              Organization Settings
+            </h2>
+            <div className="max-w-lg space-y-5">
+              {/* Organization Name */}
+              <Input
+                label="Organization Name"
+                id="org_name"
+                value={orgName}
+                onChange={(e) => setOrgName(e.target.value)}
+              />
+
+              {/* Description */}
+              <div>
+                <label
+                  htmlFor="org_description"
+                  className="mb-1.5 block text-sm font-medium text-gray-700"
+                >
+                  Description
+                </label>
+                <textarea
+                  id="org_description"
+                  rows={2}
+                  maxLength={280}
+                  value={orgDescription}
+                  onChange={(e) => setOrgDescription(e.target.value)}
+                  placeholder="Brief description of your organization"
+                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+                <p className="mt-1 text-xs text-gray-400">
+                  {orgDescription.length}/280 characters
                 </p>
               </div>
-            )}
-            {orgMsg && (
-              <p
-                role="status"
-                className={`text-sm ${orgMsg.includes("error") || orgMsg.includes("Error") ? "text-red-600" : "text-green-600"}`}
+
+              {/* Contact Email */}
+              <Input
+                label="Contact email"
+                id="contact_email"
+                type="email"
+                value={contactEmail}
+                onChange={(e) => setContactEmail(e.target.value)}
+                placeholder="org@example.com"
+              />
+
+              {/* Phone */}
+              <div>
+                <label
+                  htmlFor="phone"
+                  className="mb-1.5 block text-sm font-medium text-gray-700"
+                >
+                  Phone{" "}
+                  <span className="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <input
+                  id="phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="(555) 555-0100"
+                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Location: City + State */}
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                  Location{" "}
+                  <span className="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    placeholder="City"
+                    className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                  <select
+                    value={state}
+                    onChange={(e) => setState(e.target.value)}
+                    aria-label="State"
+                    className="w-24 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="">State</option>
+                    {US_STATES.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Timezone */}
+              <div>
+                <label
+                  htmlFor="timezone"
+                  className="mb-1.5 block text-sm font-medium text-gray-700"
+                >
+                  Timezone
+                </label>
+                <select
+                  id="timezone"
+                  value={timezone}
+                  onChange={(e) => setTimezone(e.target.value)}
+                  className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  {COMMON_TIMEZONES.map((tz) => (
+                    <option key={tz} value={tz}>
+                      {tz.replace(/_/g, " ")}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Fiscal Year Start */}
+              <div>
+                <label
+                  htmlFor="fiscal_year"
+                  className="mb-1.5 block text-sm font-medium text-gray-700"
+                >
+                  Fiscal year starts
+                </label>
+                <select
+                  id="fiscal_year"
+                  value={fiscalYearStart}
+                  onChange={(e) => setFiscalYearStart(Number(e.target.value))}
+                  className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  {MONTHS.map((month, i) => (
+                    <option key={month} value={i + 1}>
+                      {month}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Plan / Slug info */}
+              {org && (
+                <div className="space-y-2 border-t border-gray-100 pt-4">
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <Shield className="h-4 w-4" aria-hidden="true" />
+                    <span>
+                      Plan:{" "}
+                      <span className="font-medium text-gray-700">
+                        {org.tier.charAt(0).toUpperCase() + org.tier.slice(1)}
+                      </span>
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-500">
+                    Slug:{" "}
+                    <span className="font-mono text-gray-700">{org.slug}</span>
+                  </p>
+                </div>
+              )}
+
+              {orgMsg && (
+                <p
+                  role="status"
+                  className={`text-sm ${
+                    orgMsg.includes("error") ||
+                    orgMsg.includes("Error") ||
+                    orgMsg.includes("Failed")
+                      ? "text-red-600"
+                      : "text-green-600"
+                  }`}
+                >
+                  {orgMsg}
+                </p>
+              )}
+
+              <Button
+                onClick={saveOrg}
+                loading={savingOrg}
+                disabled={!orgFormChanged}
               >
-                {orgMsg}
+                <Save className="mr-2 h-4 w-4" aria-hidden="true" />
+                Save Changes
+              </Button>
+            </div>
+
+            {/* Seed Data */}
+            <div className="mt-8 border-t border-gray-200 pt-6">
+              <h3 className="mb-2 text-sm font-semibold text-gray-900">
+                Sample Data
+              </h3>
+              <p className="mb-3 text-sm text-gray-500">
+                Load realistic sample data to test the app — 15 volunteers, 6
+                events, skills, roles, and committees with assignments.
               </p>
-            )}
-            <Button
-              onClick={saveOrgName}
-              loading={savingOrg}
-              disabled={orgName === org?.name}
-            >
-              <Save className="mr-2 h-4 w-4" aria-hidden="true" />
-              Save Changes
-            </Button>
+              {seedMsg && (
+                <p
+                  role="status"
+                  className={`mb-3 text-sm ${
+                    seedMsg.includes("error") || seedMsg.includes("Error")
+                      ? "text-red-600"
+                      : "text-green-600"
+                  }`}
+                >
+                  {seedMsg}
+                </p>
+              )}
+              <Button
+                variant="secondary"
+                onClick={handleSeedData}
+                loading={seeding}
+              >
+                <Database className="mr-2 h-4 w-4" aria-hidden="true" />
+                Load Sample Data
+              </Button>
+            </div>
+          </Card>
+
+          {/* Danger Zone */}
+          <div className="rounded-xl border border-red-200 bg-white shadow-sm">
+            <div className="border-l-4 border-red-500 p-6">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className="h-5 w-5 text-red-500" aria-hidden="true" />
+                <h3 className="text-lg font-semibold text-red-700">
+                  Danger Zone
+                </h3>
+              </div>
+              <p className="mb-4 text-sm text-gray-600">
+                Permanently delete this organization and all associated data.
+                This action cannot be undone.
+              </p>
+              <button
+                onClick={() => {
+                  setShowDeleteModal(true);
+                  setDeleteConfirmName("");
+                }}
+                className="inline-flex items-center rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+              >
+                <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
+                Delete organization
+              </button>
+            </div>
           </div>
 
-          {/* Seed Data */}
-          <div className="mt-8 border-t border-gray-200 pt-6">
-            <h3 className="mb-2 text-sm font-semibold text-gray-900">
-              Sample Data
-            </h3>
-            <p className="mb-3 text-sm text-gray-500">
-              Load realistic sample data to test the app — 15 volunteers, 6 events,
-              skills, roles, and committees with assignments.
-            </p>
-            {seedMsg && (
-              <p role="status" className={`mb-3 text-sm ${seedMsg.includes("error") || seedMsg.includes("Error") ? "text-red-600" : "text-green-600"}`}>
-                {seedMsg}
-              </p>
-            )}
-            <Button
-              variant="secondary"
-              onClick={handleSeedData}
-              loading={seeding}
+          {/* Delete Confirmation Modal */}
+          {showDeleteModal && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="delete-org-title"
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setShowDeleteModal(false);
+              }}
             >
-              <Database className="mr-2 h-4 w-4" aria-hidden="true" />
-              Load Sample Data
-            </Button>
-          </div>
-        </Card>
+              <Card className="w-full max-w-md">
+                <div className="mb-4 flex items-center justify-between">
+                  <h2
+                    id="delete-org-title"
+                    className="text-lg font-semibold text-red-700"
+                  >
+                    Delete Organization
+                  </h2>
+                  <button
+                    onClick={() => setShowDeleteModal(false)}
+                    className="rounded-lg p-1 hover:bg-gray-100"
+                    aria-label="Close"
+                  >
+                    <X className="h-5 w-5 text-gray-500" />
+                  </button>
+                </div>
+
+                <div className="rounded-lg bg-red-50 p-3 mb-4">
+                  <p className="text-sm text-red-700">
+                    This will permanently delete{" "}
+                    <span className="font-semibold">{org?.name}</span> and all
+                    associated data including volunteers, events, committees, and
+                    team members.
+                  </p>
+                </div>
+
+                <p className="mb-2 text-sm text-gray-600">
+                  Type{" "}
+                  <span className="font-mono font-semibold text-gray-900">
+                    {org?.name}
+                  </span>{" "}
+                  to confirm:
+                </p>
+                <input
+                  type="text"
+                  value={deleteConfirmName}
+                  onChange={(e) => setDeleteConfirmName(e.target.value)}
+                  placeholder={org?.name}
+                  className="mb-4 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
+                />
+
+                <div className="flex justify-end gap-3">
+                  <Button
+                    variant="secondary"
+                    onClick={() => setShowDeleteModal(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="danger"
+                    onClick={handleDeleteOrg}
+                    loading={deleting}
+                    disabled={deleteConfirmName !== org?.name}
+                  >
+                    Delete Organization
+                  </Button>
+                </div>
+              </Card>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Team Tab */}
       {activeTab === "team" && (
-        <div id="panel-team" role="tabpanel" aria-labelledby="tab-team" className="space-y-6">
+        <div
+          id="panel-team"
+          role="tabpanel"
+          aria-labelledby="tab-team"
+          className="space-y-6"
+        >
           {/* Invite Form */}
           <Card>
             <h2 className="mb-2 text-lg font-semibold text-gray-900">
@@ -490,8 +880,9 @@ export default function SettingsPage() {
                   Migration Required
                 </p>
                 <p className="mb-3 text-sm text-amber-700">
-                  The team invites feature requires a database migration. Go to your
-                  Supabase dashboard &rarr; SQL Editor and run the contents of{" "}
+                  The team invites feature requires a database migration. Go to
+                  your Supabase dashboard &rarr; SQL Editor and run the contents
+                  of{" "}
                   <code className="rounded bg-amber-100 px-1 py-0.5 text-xs font-mono">
                     supabase/migrations/00005_team_invites.sql
                   </code>{" "}
@@ -504,65 +895,65 @@ export default function SettingsPage() {
               </div>
             ) : (
               <>
-            <p className="mb-4 text-sm text-gray-500">
-              Invite people to help manage your organization. They&apos;ll join
-              automatically when they sign up with the invited email.
-            </p>
+                <p className="mb-4 text-sm text-gray-500">
+                  Invite people to help manage your organization. They&apos;ll
+                  join automatically when they sign up with the invited email.
+                </p>
 
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <div className="flex-1">
-                <Input
-                  ref={inviteEmailRef}
-                  placeholder="colleague@example.com"
-                  type="email"
-                  value={inviteEmail}
-                  onChange={(e) => {
-                    setInviteEmail(e.target.value);
-                    setInviteError("");
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      sendInvite();
-                    }
-                  }}
-                  aria-label="Email address to invite"
-                />
-              </div>
-              <div className="w-full sm:w-36">
-                <select
-                  value={inviteRole}
-                  onChange={(e) => setInviteRole(e.target.value)}
-                  aria-label="Role for invited member"
-                  className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  {INVITABLE_ROLES.map((r) => (
-                    <option key={r.value} value={r.value}>
-                      {r.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <Button
-                onClick={sendInvite}
-                loading={inviteLoading}
-                disabled={!inviteEmail.trim()}
-              >
-                <Mail className="mr-2 h-4 w-4" aria-hidden="true" />
-                Send Invite
-              </Button>
-            </div>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <div className="flex-1">
+                    <Input
+                      ref={inviteEmailRef}
+                      placeholder="colleague@example.com"
+                      type="email"
+                      value={inviteEmail}
+                      onChange={(e) => {
+                        setInviteEmail(e.target.value);
+                        setInviteError("");
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          sendInvite();
+                        }
+                      }}
+                      aria-label="Email address to invite"
+                    />
+                  </div>
+                  <div className="w-full sm:w-36">
+                    <select
+                      value={inviteRole}
+                      onChange={(e) => setInviteRole(e.target.value)}
+                      aria-label="Role for invited member"
+                      className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                      {INVITABLE_ROLES.map((r) => (
+                        <option key={r.value} value={r.value}>
+                          {r.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <Button
+                    onClick={sendInvite}
+                    loading={inviteLoading}
+                    disabled={!inviteEmail.trim()}
+                  >
+                    <Mail className="mr-2 h-4 w-4" aria-hidden="true" />
+                    Send Invite
+                  </Button>
+                </div>
 
-            {inviteError && (
-              <p role="alert" className="mt-2 text-sm text-red-600">
-                {inviteError}
-              </p>
-            )}
-            {inviteSuccess && (
-              <p role="status" className="mt-2 text-sm text-green-600">
-                {inviteSuccess}
-              </p>
-            )}
+                {inviteError && (
+                  <p role="alert" className="mt-2 text-sm text-red-600">
+                    {inviteError}
+                  </p>
+                )}
+                {inviteSuccess && (
+                  <p role="status" className="mt-2 text-sm text-green-600">
+                    {inviteSuccess}
+                  </p>
+                )}
               </>
             )}
           </Card>
@@ -580,13 +971,17 @@ export default function SettingsPage() {
                     className="flex items-center justify-between rounded-lg border border-dashed border-gray-200 bg-gray-50 p-3"
                   >
                     <div className="flex items-center gap-3">
-                      <Clock className="h-4 w-4 text-gray-400" aria-hidden="true" />
+                      <Clock
+                        className="h-4 w-4 text-gray-400"
+                        aria-hidden="true"
+                      />
                       <div>
                         <p className="text-sm font-medium text-gray-700">
                           {invite.email}
                         </p>
                         <p className="text-xs text-gray-400">
-                          Invited as {ROLE_LABELS[invite.role] || invite.role}
+                          Invited as{" "}
+                          {ROLE_LABELS[invite.role] || invite.role}
                         </p>
                       </div>
                     </div>
@@ -610,7 +1005,11 @@ export default function SettingsPage() {
             </h2>
             {loadingTeam ? (
               <div className="flex justify-center py-8">
-                <div className="h-6 w-6 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" role="status" aria-label="Loading team members" />
+                <div
+                  className="h-6 w-6 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"
+                  role="status"
+                  aria-label="Loading team members"
+                />
               </div>
             ) : (
               <div className="space-y-3">
@@ -625,7 +1024,11 @@ export default function SettingsPage() {
                       </p>
                       <p className="text-sm text-gray-500">{member.email}</p>
                     </div>
-                    <span className={`rounded-full px-3 py-1 text-xs font-medium ${ROLE_COLORS[member.role] || "bg-gray-100 text-gray-700"}`}>
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-medium ${
+                        ROLE_COLORS[member.role] || "bg-gray-100 text-gray-700"
+                      }`}
+                    >
                       {ROLE_LABELS[member.role] || member.role}
                     </span>
                   </div>
@@ -638,7 +1041,12 @@ export default function SettingsPage() {
 
       {/* Skills Tab */}
       {activeTab === "skills" && (
-        <div id="panel-skills" role="tabpanel" aria-labelledby="tab-skills" className="space-y-6">
+        <div
+          id="panel-skills"
+          role="tabpanel"
+          aria-labelledby="tab-skills"
+          className="space-y-6"
+        >
           <Card>
             <h2 className="mb-2 text-lg font-semibold text-gray-900">
               Skills & Programs
@@ -670,7 +1078,9 @@ export default function SettingsPage() {
               </Button>
             </div>
             {skillError && (
-              <p role="alert" className="mt-2 text-sm text-red-600">{skillError}</p>
+              <p role="alert" className="mt-2 text-sm text-red-600">
+                {skillError}
+              </p>
             )}
           </Card>
 
@@ -680,7 +1090,11 @@ export default function SettingsPage() {
             </h3>
             {loadingSkills ? (
               <div className="flex justify-center py-8">
-                <div className="h-6 w-6 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" role="status" aria-label="Loading skills" />
+                <div
+                  className="h-6 w-6 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"
+                  role="status"
+                  aria-label="Loading skills"
+                />
               </div>
             ) : skills.length === 0 ? (
               <p className="py-3 text-center text-sm text-gray-400">
@@ -711,7 +1125,12 @@ export default function SettingsPage() {
 
       {/* Roles Tab */}
       {activeTab === "roles" && (
-        <div id="panel-roles" role="tabpanel" aria-labelledby="tab-roles" className="space-y-6">
+        <div
+          id="panel-roles"
+          role="tabpanel"
+          aria-labelledby="tab-roles"
+          className="space-y-6"
+        >
           <Card>
             <h2 className="mb-2 text-lg font-semibold text-gray-900">Roles</h2>
             <p className="mb-4 text-sm text-gray-500">
@@ -741,7 +1160,9 @@ export default function SettingsPage() {
               </Button>
             </div>
             {roleError && (
-              <p role="alert" className="mt-2 text-sm text-red-600">{roleError}</p>
+              <p role="alert" className="mt-2 text-sm text-red-600">
+                {roleError}
+              </p>
             )}
           </Card>
 
@@ -751,7 +1172,11 @@ export default function SettingsPage() {
             </h3>
             {loadingRoles ? (
               <div className="flex justify-center py-8">
-                <div className="h-6 w-6 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" role="status" aria-label="Loading roles" />
+                <div
+                  className="h-6 w-6 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"
+                  role="status"
+                  aria-label="Loading roles"
+                />
               </div>
             ) : roles.length === 0 ? (
               <p className="py-3 text-center text-sm text-gray-400">

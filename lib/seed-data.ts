@@ -261,6 +261,65 @@ export async function seedSampleData(
       }
     }
 
+    // ── Committee Priorities ─────────────────────────────────
+    const now2 = new Date();
+    const priorityData: { committee: string; priorities: { text: string; due_date: string | null; completed: boolean }[] }[] = [
+      {
+        committee: "Event Planning",
+        priorities: [
+          { text: "Finalize Spring Walk route map", due_date: new Date(now2.getFullYear(), now2.getMonth(), now2.getDate() + 5).toISOString().split("T")[0], completed: false },
+          { text: "Confirm vendor permits for food area", due_date: new Date(now2.getFullYear(), now2.getMonth(), now2.getDate() + 10).toISOString().split("T")[0], completed: false },
+          { text: "Book sound system for finish line", due_date: new Date(now2.getFullYear(), now2.getMonth(), now2.getDate() - 3).toISOString().split("T")[0], completed: true },
+        ],
+      },
+      {
+        committee: "Fundraising",
+        priorities: [
+          { text: "Send sponsorship packets to local businesses", due_date: new Date(now2.getFullYear(), now2.getMonth(), now2.getDate() + 14).toISOString().split("T")[0], completed: false },
+          { text: "Set up online donation page for gala", due_date: new Date(now2.getFullYear(), now2.getMonth(), now2.getDate() - 1).toISOString().split("T")[0], completed: false },
+        ],
+      },
+      {
+        committee: "Outreach",
+        priorities: [
+          { text: "Draft social media calendar for April", due_date: new Date(now2.getFullYear(), now2.getMonth(), now2.getDate() + 3).toISOString().split("T")[0], completed: false },
+          { text: "Design volunteer recruitment flyer", due_date: new Date(now2.getFullYear(), now2.getMonth(), now2.getDate() + 20).toISOString().split("T")[0], completed: false },
+          { text: "Update website event listings", due_date: new Date(now2.getFullYear(), now2.getMonth(), now2.getDate() - 5).toISOString().split("T")[0], completed: true },
+        ],
+      },
+      {
+        committee: "Training",
+        priorities: [
+          { text: "Prepare safety protocol handouts", due_date: new Date(now2.getFullYear(), now2.getMonth(), now2.getDate() + 6).toISOString().split("T")[0], completed: false },
+          { text: "Schedule CPR refresher session", due_date: new Date(now2.getFullYear(), now2.getMonth(), now2.getDate() + 30).toISOString().split("T")[0], completed: false },
+        ],
+      },
+    ];
+
+    for (const pd of priorityData) {
+      const cId = committeeMap.get(pd.committee);
+      if (!cId) continue;
+
+      // Check if priorities already exist for this committee
+      const { data: existingPriorities } = await supabase
+        .from("committee_priorities")
+        .select("id")
+        .eq("committee_id", cId)
+        .limit(1);
+
+      if (existingPriorities && existingPriorities.length > 0) continue;
+
+      await supabase.from("committee_priorities").insert(
+        pd.priorities.map((p) => ({
+          committee_id: cId,
+          org_id: orgId,
+          text: p.text,
+          due_date: p.due_date,
+          completed: p.completed,
+        }))
+      );
+    }
+
     // ── Events ──────────────────────────────────────────────
     const now = new Date();
     const eventData = [

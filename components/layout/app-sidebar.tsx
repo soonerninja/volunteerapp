@@ -54,7 +54,7 @@ export function AppSidebar({ open, onClose }: AppSidebarProps) {
         {/* Logo / App name */}
         <div className="flex h-16 items-center justify-between border-b border-gray-200 px-6">
           <Link href="/dashboard" className="text-lg font-bold text-blue-600">
-            VolunteerHub
+            GoodTally
           </Link>
           <button
             onClick={onClose}
