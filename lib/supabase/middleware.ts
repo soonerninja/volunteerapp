@@ -38,7 +38,8 @@ export async function updateSession(request: NextRequest) {
   // Public routes that don't require auth
   const publicRoutes = ["/login", "/signup", "/forgot-password", "/auth/callback"];
   const isPublicRoute = publicRoutes.some((route) => pathname.startsWith(route));
-  const isMarketingRoute = pathname === "/";
+  const marketingRoutes = ["/", "/pricing"];
+  const isMarketingRoute = marketingRoutes.some((route) => pathname === route || pathname.startsWith(route + "/"));
 
   // If not authenticated and trying to access app routes, redirect to login
   if (!user && !isPublicRoute && !isMarketingRoute) {

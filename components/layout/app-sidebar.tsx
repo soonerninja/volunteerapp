@@ -9,6 +9,8 @@ import {
   UsersRound,
   Settings,
   CreditCard,
+  UserCog,
+  FileDown,
   X,
 } from "lucide-react";
 import { cn } from "@/utils/cn";
@@ -18,7 +20,9 @@ const navigation = [
   { name: "Volunteers", href: "/volunteers", icon: Users },
   { name: "Events", href: "/events", icon: Calendar },
   { name: "Committees", href: "/committees", icon: UsersRound },
+  { name: "Exports", href: "/exports", icon: FileDown },
   { name: "Settings", href: "/settings", icon: Settings },
+  { name: "Account", href: "/settings/account", icon: UserCog },
   { name: "Plan & Billing", href: "/settings/billing", icon: CreditCard },
 ];
 
@@ -63,7 +67,7 @@ export function AppSidebar({ open, onClose }: AppSidebarProps) {
         {/* Nav links */}
         <nav className="flex-1 space-y-1 px-3 py-4">
           {navigation.map((item) => {
-            const isActive = pathname.startsWith(item.href);
+            const isActive = pathname === item.href || (item.href !== "/settings" && pathname.startsWith(item.href + "/"));
             return (
               <Link
                 key={item.name}
