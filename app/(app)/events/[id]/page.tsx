@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useOrg } from "@/hooks/use-org";
+import { usePermissions } from "@/hooks/use-permissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -30,6 +31,7 @@ export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { supabase, orgId, profile } = useOrg();
+  const { canEdit, canDelete } = usePermissions();
 
   const [event, setEvent] = useState<Event | null>(null);
   const [volunteers, setVolunteers] = useState<Volunteer[]>([]);
@@ -464,27 +466,31 @@ export default function EventDetailPage() {
 
               <div className="flex items-center justify-between pt-2">
                 <div className="flex gap-3">
-                  <Button type="submit" loading={saving}>
-                    <Save className="mr-2 h-4 w-4" aria-hidden="true" />
-                    Save Changes
-                  </Button>
+                  {canEdit && (
+                    <Button type="submit" loading={saving}>
+                      <Save className="mr-2 h-4 w-4" aria-hidden="true" />
+                      Save Changes
+                    </Button>
+                  )}
                   <Button
                     type="button"
                     variant="secondary"
                     onClick={() => router.push("/events")}
                   >
-                    Cancel
+                    {canEdit ? "Cancel" : "Back"}
                   </Button>
                 </div>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={handleDelete}
-                  className="!border-red-200 !text-red-600 hover:!bg-red-50"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
-                  Delete
-                </Button>
+                {canDelete && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handleDelete}
+                    className="!border-red-200 !text-red-600 hover:!bg-red-50"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
+                    Delete
+                  </Button>
+                )}
               </div>
             </form>
           </Card>
@@ -527,7 +533,7 @@ export default function EventDetailPage() {
                       >
                         <div>
                           <Link
-                            href={`/volunteers`}
+                            href={`/volunteers/${ev.volunteers.id}`}
                             className="text-sm font-medium text-blue-600 hover:text-blue-800"
                           >
                             {ev.volunteers.first_name} {ev.volunteers.last_name}

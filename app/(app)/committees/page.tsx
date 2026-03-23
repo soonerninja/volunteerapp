@@ -2,10 +2,13 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useOrg } from "@/hooks/use-org";
+import { usePermissions } from "@/hooks/use-permissions";
+import { usePlan } from "@/hooks/use-plan";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PlanLimitBadge, UpgradePrompt } from "@/components/ui/upgrade-prompt";
 import { VolunteerSearchSelect } from "@/components/ui/volunteer-search-select";
 import type { Committee, Volunteer } from "@/types/database";
 import {
@@ -27,6 +30,8 @@ type CommitteeMember = {
 
 export default function CommitteesPage() {
   const { supabase, orgId, profile } = useOrg();
+  const { canEdit, canDelete: canDeletePerm } = usePermissions();
+  const { canAdd, usageLabel } = usePlan();
 
   const [committees, setCommittees] = useState<CommitteeWithCount[]>([]);
   const [volunteers, setVolunteers] = useState<Volunteer[]>([]);
@@ -257,11 +262,21 @@ export default function CommitteesPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Committees</h1>
-        <Button onClick={() => setShowForm(true)}>
-          <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
-          Create Committee
-        </Button>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-gray-900">Committees</h1>
+          <PlanLimitBadge usage={usageLabel("committees")} atLimit={!canAdd("committees")} />
+        </div>
+        {canEdit && (
+          <div className="flex items-center gap-3">
+            {!canAdd("committees") && (
+              <UpgradePrompt requiredTier="starter" feature="create more committees" variant="inline" />
+            )}
+            <Button onClick={() => setShowForm(true)} disabled={!canAdd("committees")}>
+              <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+              Create Committee
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Page-level error */}
@@ -481,25 +496,29 @@ export default function CommitteesPage() {
                     </span>
                   </div>
                 </div>
-                <div
-                  className="flex gap-1"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <button
-                    onClick={() => openEdit(c)}
-                    className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                    aria-label={`Edit ${c.name}`}
+                {canEdit && (
+                  <div
+                    className="flex gap-1"
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    <Edit2 className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(c)}
-                    className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600"
-                    aria-label={`Delete ${c.name}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
+                    <button
+                      onClick={() => openEdit(c)}
+                      className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                      aria-label={`Edit ${c.name}`}
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                    {canDeletePerm && (
+                      <button
+                        onClick={() => handleDelete(c)}
+                        className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                        aria-label={`Delete ${c.name}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </Card>
           ))}

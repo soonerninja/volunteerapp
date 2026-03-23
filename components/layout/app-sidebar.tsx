@@ -8,6 +8,7 @@ import {
   Calendar,
   UsersRound,
   Settings,
+  CreditCard,
   X,
 } from "lucide-react";
 import { cn } from "@/utils/cn";
@@ -18,6 +19,7 @@ const navigation = [
   { name: "Events", href: "/events", icon: Calendar },
   { name: "Committees", href: "/committees", icon: UsersRound },
   { name: "Settings", href: "/settings", icon: Settings },
+  { name: "Plan & Billing", href: "/settings/billing", icon: CreditCard },
 ];
 
 interface AppSidebarProps {
@@ -48,7 +50,7 @@ export function AppSidebar({ open, onClose }: AppSidebarProps) {
         {/* Logo / App name */}
         <div className="flex h-16 items-center justify-between border-b border-gray-200 px-6">
           <Link href="/dashboard" className="text-lg font-bold text-blue-600">
-            [App Name]
+            VolunteerHub
           </Link>
           <button
             onClick={onClose}

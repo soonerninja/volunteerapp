@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useOrg } from "@/hooks/use-org";
+import { usePermissions } from "@/hooks/use-permissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -19,6 +20,7 @@ import {
   Clock,
   Trash2,
   Database,
+  Lock,
 } from "lucide-react";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -43,6 +45,7 @@ const INVITABLE_ROLES = [
 
 export default function SettingsPage() {
   const { supabase, orgId, profile, refreshProfile } = useOrg();
+  const { canManageTeam, canManageConfig, canEdit } = usePermissions();
 
   const [activeTab, setActiveTab] = useState<
     "organization" | "team" | "skills" | "roles"
@@ -355,12 +358,24 @@ export default function SettingsPage() {
     }
   };
 
-  const tabs = [
-    { id: "organization" as const, label: "Organization", icon: Building2 },
-    { id: "team" as const, label: "Team", icon: Users },
-    { id: "skills" as const, label: "Skills", icon: Tag },
-    { id: "roles" as const, label: "Roles", icon: Shield },
+  const allTabs = [
+    { id: "organization" as const, label: "Organization", icon: Building2, minRole: "admin" as const },
+    { id: "team" as const, label: "Team", icon: Users, minRole: "admin" as const },
+    { id: "skills" as const, label: "Skills", icon: Tag, minRole: "editor" as const },
+    { id: "roles" as const, label: "Roles", icon: Shield, minRole: "editor" as const },
   ];
+
+  const tabs = allTabs.filter((tab) => {
+    if (tab.minRole === "admin") return canManageTeam;
+    if (tab.minRole === "editor") return canEdit;
+    return true;
+  });
+
+  // If current tab is no longer visible, switch to first available
+  const visibleTabIds = tabs.map((t) => t.id);
+  if (!visibleTabIds.includes(activeTab) && tabs.length > 0) {
+    setActiveTab(tabs[0].id);
+  }
 
   return (
     <div className="space-y-6">

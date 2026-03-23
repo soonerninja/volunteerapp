@@ -1,11 +1,15 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useOrg } from "@/hooks/use-org";
+import { usePermissions } from "@/hooks/use-permissions";
+import { usePlan } from "@/hooks/use-plan";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PlanLimitBadge, UpgradePrompt } from "@/components/ui/upgrade-prompt";
 import { formatDate } from "@/utils/format";
 import type { Volunteer, Skill, Role, Committee } from "@/types/database";
 import {
@@ -46,6 +50,9 @@ const PHONE_RE = /^[+\d\s().-]{7,20}$/;
 
 export default function VolunteersPage() {
   const { supabase, orgId, profile } = useOrg();
+  const { canEdit, canDelete } = usePermissions();
+  const { canAdd, usageLabel } = usePlan();
+  const router = useRouter();
 
   const [volunteers, setVolunteers] = useState<VolunteerWithDetails[]>([]);
   const [skills, setSkills] = useState<Skill[]>([]);
@@ -404,11 +411,19 @@ export default function VolunteersPage() {
           <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-sm font-medium text-blue-700">
             {filtered.length}
           </span>
+          <PlanLimitBadge usage={usageLabel("volunteers")} atLimit={!canAdd("volunteers")} />
         </div>
-        <Button onClick={() => setShowForm(true)}>
-          <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
-          Add Volunteer
-        </Button>
+        {canEdit && (
+          <div className="flex items-center gap-3">
+            {!canAdd("volunteers") && (
+              <UpgradePrompt requiredTier="starter" feature="add more volunteers" variant="inline" />
+            )}
+            <Button onClick={() => setShowForm(true)} disabled={!canAdd("volunteers")}>
+              <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+              Add Volunteer
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Page-level error */}
@@ -778,11 +793,11 @@ export default function VolunteersPage() {
               .filter(Boolean);
 
             return (
-              <Card key={vol.id} padding="sm">
+              <Card key={vol.id} padding="sm" className="cursor-pointer transition-shadow hover:shadow-md" onClick={() => router.push(`/volunteers/${vol.id}`)}>
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-medium text-gray-900">
+                      <h3 className="font-medium text-blue-700 hover:text-blue-900">
                         {vol.first_name} {vol.last_name}
                       </h3>
                       <span
@@ -839,22 +854,26 @@ export default function VolunteersPage() {
                       </div>
                     )}
                   </div>
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => openEdit(vol)}
-                      className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                      aria-label={`Edit ${vol.first_name} ${vol.last_name}`}
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(vol)}
-                      className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600"
-                      aria-label={`Delete ${vol.first_name} ${vol.last_name}`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
+                  {canEdit && (
+                    <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={() => openEdit(vol)}
+                        className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                        aria-label={`Edit ${vol.first_name} ${vol.last_name}`}
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </button>
+                      {canDelete && (
+                        <button
+                          onClick={() => handleDelete(vol)}
+                          className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                          aria-label={`Delete ${vol.first_name} ${vol.last_name}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </Card>
             );

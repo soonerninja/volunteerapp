@@ -3,10 +3,13 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useOrg } from "@/hooks/use-org";
+import { usePermissions } from "@/hooks/use-permissions";
+import { usePlan } from "@/hooks/use-plan";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PlanLimitBadge, UpgradePrompt } from "@/components/ui/upgrade-prompt";
 import { formatDate } from "@/utils/format";
 import type { Event } from "@/types/database";
 import {
@@ -37,6 +40,8 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function EventsPage() {
   const { supabase, orgId, profile } = useOrg();
+  const { canEdit } = usePermissions();
+  const { canAdd, usageLabel } = usePlan();
   const router = useRouter();
 
   const [events, setEvents] = useState<EventWithSignups[]>([]);
@@ -185,11 +190,21 @@ export default function EventsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Events</h1>
-        <Button onClick={() => setShowCreateForm(true)}>
-          <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
-          Create Event
-        </Button>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-gray-900">Events</h1>
+          <PlanLimitBadge usage={usageLabel("activeEvents")} atLimit={!canAdd("activeEvents")} />
+        </div>
+        {canEdit && (
+          <div className="flex items-center gap-3">
+            {!canAdd("activeEvents") && (
+              <UpgradePrompt requiredTier="starter" feature="create more events" variant="inline" />
+            )}
+            <Button onClick={() => setShowCreateForm(true)} disabled={!canAdd("activeEvents")}>
+              <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+              Create Event
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Filter */}
