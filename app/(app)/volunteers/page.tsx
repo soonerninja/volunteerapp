@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PlanLimitBadge, UpgradePrompt } from "@/components/ui/upgrade-prompt";
+import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import { formatDate } from "@/utils/format";
 import type { Volunteer, Skill, Role, Committee } from "@/types/database";
 import {
@@ -64,6 +65,8 @@ export default function VolunteersPage() {
     useState<VolunteerWithDetails | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [deletingVolunteer, setDeletingVolunteer] = useState<VolunteerWithDetails | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const firstInputRef = useRef<HTMLInputElement>(null);
 
   // Filters
@@ -351,17 +354,23 @@ export default function VolunteersPage() {
     fetchVolunteers();
   };
 
-  const handleDelete = async (vol: Volunteer) => {
-    if (!confirm(`Delete ${vol.first_name} ${vol.last_name}?`)) return;
-    if (!orgId || !profile) return;
+  const handleDelete = async (vol: VolunteerWithDetails) => {
+    setDeletingVolunteer(vol);
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingVolunteer || !orgId || !profile) return;
+    setDeleteLoading(true);
 
     const { error: delErr } = await supabase
       .from("volunteers")
       .delete()
-      .eq("id", vol.id);
+      .eq("id", deletingVolunteer.id);
 
     if (delErr) {
       setError(`Failed to delete volunteer: ${delErr.message}`);
+      setDeleteLoading(false);
+      setDeletingVolunteer(null);
       return;
     }
 
@@ -370,9 +379,11 @@ export default function VolunteersPage() {
       user_id: profile.id,
       action: "volunteer.deleted",
       entity_type: "volunteer",
-      entity_id: vol.id,
-      metadata: { name: `${vol.first_name} ${vol.last_name}` },
+      entity_id: deletingVolunteer.id,
+      metadata: { name: `${deletingVolunteer.first_name} ${deletingVolunteer.last_name}` },
     });
+    setDeleteLoading(false);
+    setDeletingVolunteer(null);
     fetchVolunteers();
   };
 
@@ -753,6 +764,17 @@ export default function VolunteersPage() {
             </form>
           </Card>
         </div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {deletingVolunteer && (
+        <ConfirmDeleteDialog
+          name={`${deletingVolunteer.first_name} ${deletingVolunteer.last_name}`}
+          entityType="volunteer"
+          onConfirm={confirmDelete}
+          onCancel={() => setDeletingVolunteer(null)}
+          loading={deleteLoading}
+        />
       )}
 
       {/* Volunteer List */}

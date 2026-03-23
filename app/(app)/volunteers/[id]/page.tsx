@@ -7,6 +7,7 @@ import { useOrg } from "@/hooks/use-org";
 import { usePermissions } from "@/hooks/use-permissions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import { formatDate, formatRelativeTime } from "@/utils/format";
 import type {
   Volunteer,
@@ -84,6 +85,8 @@ export default function VolunteerDetailPage() {
   const [committees, setCommittees] = useState<CommitteeMembership[]>([]);
   const [activity, setActivity] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const fetchVolunteer = useCallback(async () => {
     if (!orgId || !id) return;
@@ -151,21 +154,20 @@ export default function VolunteerDetailPage() {
     );
   }, [fetchVolunteer, fetchRelations]);
 
-  const handleDelete = async () => {
+  const confirmDelete = async () => {
     if (!volunteer || !orgId || !profile) return;
-    if (
-      !confirm(
-        `Delete ${volunteer.first_name} ${volunteer.last_name}? This cannot be undone.`
-      )
-    )
-      return;
+    setDeleteLoading(true);
 
     const { error } = await supabase
       .from("volunteers")
       .delete()
       .eq("id", volunteer.id);
 
-    if (error) return;
+    if (error) {
+      setDeleteLoading(false);
+      setShowDeleteDialog(false);
+      return;
+    }
 
     await supabase.from("audit_log").insert({
       org_id: orgId,
@@ -178,6 +180,7 @@ export default function VolunteerDetailPage() {
       },
     });
 
+    setDeleteLoading(false);
     router.push("/volunteers");
   };
 
@@ -268,7 +271,7 @@ export default function VolunteerDetailPage() {
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={handleDelete}
+                onClick={() => setShowDeleteDialog(true)}
                 className="!border-red-200 !text-red-600 hover:!bg-red-50"
               >
                 <Trash2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
@@ -278,6 +281,17 @@ export default function VolunteerDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteDialog && volunteer && (
+        <ConfirmDeleteDialog
+          name={`${volunteer.first_name} ${volunteer.last_name}`}
+          entityType="volunteer"
+          onConfirm={confirmDelete}
+          onCancel={() => setShowDeleteDialog(false)}
+          loading={deleteLoading}
+        />
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Left Column: Contact & Details */}

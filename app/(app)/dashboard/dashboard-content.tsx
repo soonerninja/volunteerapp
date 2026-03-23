@@ -144,9 +144,10 @@ export function DashboardContent({
           ) : (
             <div className="space-y-3">
               {upcomingEvents.map((event) => (
-                <div
+                <Link
                   key={event.id}
-                  className="flex items-center justify-between rounded-lg border border-gray-100 p-3"
+                  href={`/events/${event.id}`}
+                  className="flex items-center justify-between rounded-lg border border-gray-100 p-3 transition-colors hover:bg-gray-50"
                 >
                   <div>
                     <p className="font-medium text-gray-900">{event.title}</p>
@@ -164,7 +165,7 @@ export function DashboardContent({
                       signed up
                     </span>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           )}
@@ -190,12 +191,13 @@ export function DashboardContent({
           ) : (
             <div className="space-y-2">
               {needsOutreach.map((v) => (
-                <div
+                <Link
                   key={v.id}
-                  className="flex items-center justify-between rounded-lg border border-gray-100 p-3"
+                  href={`/volunteers/${v.id}`}
+                  className="flex items-center justify-between rounded-lg border border-gray-100 p-3 transition-colors hover:bg-gray-50"
                 >
                   <div>
-                    <p className="font-medium text-gray-900">
+                    <p className="font-medium text-blue-700 hover:text-blue-900">
                       {v.first_name} {v.last_name}
                     </p>
                     {v.email && (
@@ -207,7 +209,7 @@ export function DashboardContent({
                       ? `Last: ${formatDate(v.last_event_date)}`
                       : "Never participated"}
                   </span>
-                </div>
+                </Link>
               ))}
             </div>
           )}
