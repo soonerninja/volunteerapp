@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useOrg } from "@/hooks/use-org";
 import { usePermissions } from "@/hooks/use-permissions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import { formatDate, formatRelativeTime, formatAction } from "@/utils/format";
 import type {
@@ -27,6 +28,7 @@ import {
   Trash2,
   MapPin,
   FileText,
+  X,
 } from "lucide-react";
 
 type EventParticipation = {
@@ -62,6 +64,9 @@ const STATUS_COLORS: Record<string, string> = {
   on_leave: "bg-amber-100 text-amber-700",
 };
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_RE = /^[+\d\s().-]{7,20}$/;
+
 const EVENT_STATUS_COLORS: Record<string, string> = {
   upcoming: "bg-blue-100 text-blue-700",
   active: "bg-green-100 text-green-700",
@@ -86,6 +91,24 @@ export default function VolunteerDetailPage() {
   const [loading, setLoading] = useState(true);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // Edit form state
+  const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const firstInputRef = useRef<HTMLInputElement>(null);
+  const [form, setForm] = useState({
+    first_name: "",
+    last_name: "",
+    email: "",
+    phone: "",
+    status: "active",
+    notes: "",
+    joined_date: "",
+    selectedSkills: {} as Record<string, boolean>,
+    selectedRoles: {} as Record<string, boolean>,
+  });
 
   const fetchVolunteer = useCallback(async () => {
     if (!orgId || !id) return;
@@ -152,6 +175,109 @@ export default function VolunteerDetailPage() {
       setLoading(false)
     );
   }, [fetchVolunteer, fetchRelations]);
+
+  // Focus first input when edit form opens
+  useEffect(() => {
+    if (showForm) {
+      setTimeout(() => firstInputRef.current?.focus(), 50);
+    }
+  }, [showForm]);
+
+  const openEdit = () => {
+    if (!volunteer) return;
+    const selectedSkills: Record<string, boolean> = {};
+    volSkillIds.forEach((sid) => { selectedSkills[sid] = true; });
+    const selectedRoles: Record<string, boolean> = {};
+    volRoleIds.forEach((rid) => { selectedRoles[rid] = true; });
+    setForm({
+      first_name: volunteer.first_name,
+      last_name: volunteer.last_name,
+      email: volunteer.email || "",
+      phone: volunteer.phone || "",
+      status: volunteer.status,
+      notes: volunteer.notes || "",
+      joined_date: volunteer.joined_date || "",
+      selectedSkills,
+      selectedRoles,
+    });
+    setFormError("");
+    setFieldErrors({});
+    setShowForm(true);
+  };
+
+  const resetForm = () => {
+    setShowForm(false);
+    setFormError("");
+    setFieldErrors({});
+  };
+
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    if (!form.first_name.trim()) errors.first_name = "First name is required.";
+    if (!form.last_name.trim()) errors.last_name = "Last name is required.";
+    if (form.email.trim() && !EMAIL_RE.test(form.email.trim())) {
+      errors.email = "Please enter a valid email address.";
+    }
+    if (form.phone.trim() && !PHONE_RE.test(form.phone.trim())) {
+      errors.phone = "Please enter a valid phone number.";
+    }
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!volunteer || !orgId || !profile) return;
+    if (!validateForm()) return;
+
+    setSaving(true);
+    setFormError("");
+
+    const { error: updateErr } = await supabase
+      .from("volunteers")
+      .update({
+        first_name: form.first_name.trim(),
+        last_name: form.last_name.trim(),
+        email: form.email.trim() || null,
+        phone: form.phone.trim() || null,
+        status: form.status,
+        notes: form.notes.trim() || null,
+        joined_date: form.joined_date || null,
+      })
+      .eq("id", volunteer.id);
+
+    if (updateErr) {
+      setFormError(updateErr.message);
+      setSaving(false);
+      return;
+    }
+
+    await supabase.from("volunteer_skills").delete().eq("volunteer_id", volunteer.id);
+    await supabase.from("volunteer_roles").delete().eq("volunteer_id", volunteer.id);
+
+    const selectedSkillIds = Object.entries(form.selectedSkills)
+      .filter(([, v]) => v)
+      .map(([skillId]) => ({ volunteer_id: volunteer.id, skill_id: skillId }));
+    const selectedRoleIds = Object.entries(form.selectedRoles)
+      .filter(([, v]) => v)
+      .map(([roleId]) => ({ volunteer_id: volunteer.id, role_id: roleId }));
+
+    if (selectedSkillIds.length > 0) await supabase.from("volunteer_skills").insert(selectedSkillIds);
+    if (selectedRoleIds.length > 0) await supabase.from("volunteer_roles").insert(selectedRoleIds);
+
+    await supabase.from("audit_log").insert({
+      org_id: orgId,
+      user_id: profile.id,
+      action: "volunteer.updated",
+      entity_type: "volunteer",
+      entity_id: volunteer.id,
+      metadata: { name: `${form.first_name} ${form.last_name}` },
+    });
+
+    setSaving(false);
+    resetForm();
+    await Promise.all([fetchVolunteer(), fetchRelations()]);
+  };
 
   const confirmDelete = async () => {
     if (!volunteer || !orgId || !profile) return;
@@ -261,7 +387,7 @@ export default function VolunteerDetailPage() {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => router.push(`/volunteers?edit=${volunteer.id}`)}
+              onClick={openEdit}
             >
               <Edit2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
               Edit
@@ -290,6 +416,196 @@ export default function VolunteerDetailPage() {
           onCancel={() => setShowDeleteDialog(false)}
           loading={deleteLoading}
         />
+      )}
+
+      {/* Edit Form Modal */}
+      {showForm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="vol-edit-title"
+          onKeyDown={(e) => { if (e.key === "Escape") resetForm(); }}
+        >
+          <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 id="vol-edit-title" className="text-lg font-semibold text-gray-900">
+                Edit Volunteer
+              </h2>
+              <button
+                onClick={resetForm}
+                className="rounded-lg p-1 hover:bg-gray-100"
+                aria-label="Close form"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+
+            {formError && (
+              <div role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
+                {formError}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  ref={firstInputRef}
+                  label="First Name *"
+                  id="edit_first_name"
+                  value={form.first_name}
+                  onChange={(e) => {
+                    setForm({ ...form, first_name: e.target.value });
+                    setFieldErrors((p) => ({ ...p, first_name: "" }));
+                  }}
+                  error={fieldErrors.first_name}
+                  required
+                />
+                <Input
+                  label="Last Name *"
+                  id="edit_last_name"
+                  value={form.last_name}
+                  onChange={(e) => {
+                    setForm({ ...form, last_name: e.target.value });
+                    setFieldErrors((p) => ({ ...p, last_name: "" }));
+                  }}
+                  error={fieldErrors.last_name}
+                  required
+                />
+              </div>
+              <Input
+                label="Email"
+                id="edit_email"
+                type="email"
+                value={form.email}
+                onChange={(e) => {
+                  setForm({ ...form, email: e.target.value });
+                  setFieldErrors((p) => ({ ...p, email: "" }));
+                }}
+                error={fieldErrors.email}
+              />
+              <Input
+                label="Phone"
+                id="edit_phone"
+                type="tel"
+                placeholder="e.g., (555) 123-4567"
+                value={form.phone}
+                onChange={(e) => {
+                  setForm({ ...form, phone: e.target.value });
+                  setFieldErrors((p) => ({ ...p, phone: "" }));
+                }}
+                error={fieldErrors.phone}
+              />
+              <div>
+                <label htmlFor="edit_status" className="mb-1.5 block text-sm font-medium text-gray-700">
+                  Status
+                </label>
+                <select
+                  id="edit_status"
+                  value={form.status}
+                  onChange={(e) => setForm({ ...form, status: e.target.value })}
+                  className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                  <option value="on_leave">On Leave</option>
+                </select>
+              </div>
+              <Input
+                label="Join Date"
+                id="edit_joined_date"
+                type="date"
+                value={form.joined_date}
+                onChange={(e) => setForm({ ...form, joined_date: e.target.value })}
+              />
+
+              {skills.length > 0 && (
+                <fieldset>
+                  <legend className="mb-2 text-sm font-medium text-gray-700">
+                    Skills & Programs
+                  </legend>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                    {skills.map((skill) => (
+                      <label
+                        key={skill.id}
+                        className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={!!form.selectedSkills[skill.id]}
+                          onChange={() =>
+                            setForm((prev) => ({
+                              ...prev,
+                              selectedSkills: {
+                                ...prev.selectedSkills,
+                                [skill.id]: !prev.selectedSkills[skill.id],
+                              },
+                            }))
+                          }
+                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        {skill.name}
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              )}
+
+              {roles.length > 0 && (
+                <fieldset>
+                  <legend className="mb-2 text-sm font-medium text-gray-700">
+                    Roles
+                  </legend>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                    {roles.map((role) => (
+                      <label
+                        key={role.id}
+                        className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={!!form.selectedRoles[role.id]}
+                          onChange={() =>
+                            setForm((prev) => ({
+                              ...prev,
+                              selectedRoles: {
+                                ...prev.selectedRoles,
+                                [role.id]: !prev.selectedRoles[role.id],
+                              },
+                            }))
+                          }
+                          className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                        />
+                        {role.name}
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              )}
+
+              <div>
+                <label htmlFor="edit_notes" className="mb-1.5 block text-sm font-medium text-gray-700">
+                  Notes
+                </label>
+                <textarea
+                  id="edit_notes"
+                  rows={3}
+                  value={form.notes}
+                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <Button type="button" variant="secondary" onClick={resetForm}>
+                  Cancel
+                </Button>
+                <Button type="submit" loading={saving}>
+                  Save Changes
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
       )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

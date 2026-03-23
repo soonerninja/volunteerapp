@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useOrg } from "@/hooks/use-org";
 import { usePermissions } from "@/hooks/use-permissions";
 import { usePlan } from "@/hooks/use-plan";
@@ -54,7 +54,6 @@ export default function VolunteersPage() {
   const { canEdit, canDelete } = usePermissions();
   const { canAdd, usageLabel, refreshCounts } = usePlan();
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const [volunteers, setVolunteers] = useState<VolunteerWithDetails[]>([]);
   const [skills, setSkills] = useState<Skill[]>([]);
@@ -235,19 +234,6 @@ export default function VolunteersPage() {
     setError("");
     setFieldErrors({});
   };
-
-  // Auto-open edit modal when navigating with ?edit=<id>
-  useEffect(() => {
-    const editId = searchParams.get("edit");
-    if (editId && volunteers.length > 0 && !showForm) {
-      const vol = volunteers.find((v) => v.id === editId);
-      if (vol) {
-        openEdit(vol);
-        router.replace("/volunteers", { scroll: false });
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, volunteers]);
 
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
