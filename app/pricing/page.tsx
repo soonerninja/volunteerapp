@@ -323,7 +323,53 @@ export default function PricingPage() {
           </div>
         </div>
 
-        {/* FAQ / Bottom CTA */}
+        {/* FAQ */}
+        <div className="mx-auto mt-20 max-w-2xl">
+          <h2 className="mb-8 text-center text-2xl font-bold text-gray-900">
+            Common questions
+          </h2>
+          <div className="space-y-2">
+            {[
+              {
+                q: "What happens to my data if I cancel?",
+                a: "Your data is yours. If you cancel, you have 30 days to export everything via CSV before we remove it from our systems. We'll never hold your volunteer data hostage.",
+              },
+              {
+                q: "Can I upgrade or downgrade mid-year?",
+                a: "You can upgrade at any time and the new plan takes effect immediately. Downgrades take effect at the end of your current annual billing cycle — you keep your current features until then.",
+              },
+              {
+                q: "Do you offer nonprofit discounts?",
+                a: "At $20–$40/year we're already priced specifically for nonprofits. If your organization has a genuine financial hardship, reach out at support@goodtally.app and we'll work something out.",
+              },
+              {
+                q: "Can my volunteers use GoodTally too?",
+                a: "Currently GoodTally is a management tool used by staff and admins to track volunteers. Volunteers don't need accounts — your team manages their records on their behalf.",
+              },
+              {
+                q: "How is billing handled?",
+                a: "All paid plans are billed annually via Stripe. You'll receive a receipt by email. We do not store your full credit card number. All fees are non-refundable per our Terms of Service.",
+              },
+            ].map(({ q, a }) => (
+              <details
+                key={q}
+                className="group rounded-xl border border-gray-200 bg-white open:shadow-sm"
+              >
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-sm font-semibold text-gray-900 hover:bg-gray-50 rounded-xl group-open:rounded-b-none group-open:border-b group-open:border-gray-100 select-none">
+                  {q}
+                  <span className="shrink-0 text-gray-400 transition-transform group-open:rotate-45 text-lg leading-none">
+                    +
+                  </span>
+                </summary>
+                <p className="px-5 pb-4 pt-3 text-sm leading-relaxed text-gray-600">
+                  {a}
+                </p>
+              </details>
+            ))}
+          </div>
+        </div>
+
+        {/* Bottom CTA */}
         <div className="mt-16 text-center">
           <p className="text-gray-500">
             Questions? Reach out at{" "}

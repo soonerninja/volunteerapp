@@ -3,9 +3,18 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+
+const VALUE_BULLETS = [
+  "Free forever for up to 10 volunteers",
+  "No credit card required to start",
+  "Set up your organization in under 2 minutes",
+  "Your data is encrypted, owned by you, exportable anytime",
+  "Paid plans start at just $20/year — not $200/month",
+];
 
 export default function SignupPage() {
   const [fullName, setFullName] = useState("");
@@ -50,8 +59,6 @@ export default function SignupPage() {
       return;
     }
 
-    // If email confirmation is disabled, go straight to onboarding
-    // Otherwise show a confirmation message
     const {
       data: { session },
     } = await supabase.auth.getSession();
@@ -103,83 +110,110 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-b from-blue-50 to-white">
-      {/* Header */}
-      <header className="flex items-center justify-between px-6 py-4">
-        <Link href="/" className="text-lg font-bold text-blue-600">
-          GoodTally
-        </Link>
-        <p className="text-sm text-gray-500">
-          Already have an account?{" "}
-          <Link
-            href="/login"
-            className="font-medium text-blue-600 hover:text-blue-700"
-          >
-            Sign in
-          </Link>
-        </p>
-      </header>
+    <div className="grid min-h-screen grid-cols-1 lg:grid-cols-2">
+      {/* Left panel — value proposition */}
+      <div className="relative flex flex-col justify-between bg-gray-900 px-8 py-10 lg:px-12">
+        {/* Subtle radial glow */}
+        <div
+          className="pointer-events-none absolute right-0 top-0 h-96 w-96 -translate-y-1/4 translate-x-1/4 rounded-full bg-blue-600/20 blur-3xl"
+          aria-hidden="true"
+        />
 
-      {/* Form */}
-      <div className="flex flex-1 items-center justify-center px-4 pb-16">
-        <div className="w-full max-w-sm">
-          <div className="mb-8 text-center">
+        {/* Logo */}
+        <Link href="/" className="relative z-10 flex items-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.svg" alt="GoodTally" className="h-8 w-auto brightness-0 invert" />
+        </Link>
+
+        {/* Headline + bullets */}
+        <div className="relative z-10 py-12">
+          <h2 className="text-3xl font-bold leading-tight text-white sm:text-4xl">
+            Your volunteers deserve{" "}
+            <em className="not-italic text-blue-400">
+              better than a spreadsheet.
+            </em>
+          </h2>
+          <p className="mt-4 text-base leading-relaxed text-gray-400">
+            Join nonprofits using GoodTally to track volunteers, log hours, and
+            run events — without the complexity or cost of enterprise software.
+          </p>
+
+          <ul className="mt-8 space-y-3">
+            {VALUE_BULLETS.map((bullet) => (
+              <li key={bullet} className="flex items-start gap-3 text-sm text-gray-300">
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-600">
+                  <Check className="h-3 w-3 text-white" aria-hidden="true" />
+                </span>
+                {bullet}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Bottom tagline */}
+        <p className="relative z-10 text-xs text-gray-600">
+          GoodTally &mdash; Volunteer management for good.
+        </p>
+      </div>
+
+      {/* Right panel — form */}
+      <div className="flex flex-col justify-center bg-white px-8 py-10 lg:px-12">
+        <div className="mx-auto w-full max-w-sm">
+          <div className="mb-8">
             <h1 className="text-2xl font-bold text-gray-900">
               Create your account
             </h1>
-            <p className="mt-2 text-sm text-gray-500">
-              Free forever for small teams. Get started in seconds.
+            <p className="mt-1.5 text-sm text-gray-500">
+              Free forever for small teams.
             </p>
           </div>
 
-          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <div
-                  role="alert"
-                  className="rounded-lg bg-red-50 p-3 text-sm text-red-700"
-                >
-                  {error}
-                </div>
-              )}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <div
+                role="alert"
+                className="rounded-lg bg-red-50 p-3 text-sm text-red-700"
+              >
+                {error}
+              </div>
+            )}
 
-              <Input
-                id="full_name"
-                label="Full name"
-                type="text"
-                placeholder="Jane Smith"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                required
-                autoFocus
-              />
+            <Input
+              id="full_name"
+              label="Full name"
+              type="text"
+              placeholder="Jane Smith"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              required
+              autoFocus
+            />
 
-              <Input
-                id="email"
-                label="Email"
-                type="email"
-                placeholder="you@nonprofit.org"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+            <Input
+              id="email"
+              label="Email"
+              type="email"
+              placeholder="you@nonprofit.org"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
 
-              <Input
-                id="password"
-                label="Password"
-                type="password"
-                placeholder="At least 6 characters"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                minLength={6}
-                required
-              />
+            <Input
+              id="password"
+              label="Password"
+              type="password"
+              placeholder="At least 6 characters"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              minLength={6}
+              required
+            />
 
-              <Button type="submit" loading={loading} className="w-full">
-                Create Account
-              </Button>
-            </form>
-          </div>
+            <Button type="submit" loading={loading} className="w-full">
+              Create Free Account
+            </Button>
+          </form>
 
           <p className="mt-4 text-center text-xs text-gray-400">
             By signing up you agree to our{" "}
@@ -191,6 +225,16 @@ export default function SignupPage() {
               Privacy Policy
             </Link>
             .
+          </p>
+
+          <p className="mt-6 text-center text-sm text-gray-500">
+            Already have an account?{" "}
+            <Link
+              href="/login"
+              className="font-medium text-blue-600 hover:text-blue-700"
+            >
+              Sign in
+            </Link>
           </p>
         </div>
       </div>
