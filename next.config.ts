@@ -54,9 +54,15 @@ export default withSentryConfig(nextConfig, {
   // Upload source maps for readable production stack traces
   silent: !process.env.CI,
   widenClientFileUpload: true,
-  hideSourceMaps: true,
-  disableLogger: true,
 
-  // Automatically tree-shake Sentry logger statements
-  automaticVercelMonitors: true,
+  sourcemaps: {
+    deleteSourcemapsAfterUpload: true,
+  },
+
+  webpack: {
+    treeshake: {
+      removeDebugLogging: true,
+    },
+    automaticVercelMonitors: true,
+  },
 });
