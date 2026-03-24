@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { PLAN_LIMITS, TIER_ORDER, formatLimit } from "@/lib/plan-limits";
 import type { OrganizationTier } from "@/types/database";
@@ -13,7 +14,14 @@ import {
   Paintbrush,
   Headphones,
   ArrowRight,
+  Mail,
 } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Pricing – GoodTally",
+  description:
+    "Simple, transparent pricing for volunteer management. Start free, upgrade as you grow. Plans for nonprofits of every size.",
+};
 
 const TIER_STYLES: Record<OrganizationTier, { ring: string; badge: string; btn: string; bg: string }> = {
   free: {
@@ -95,7 +103,7 @@ export default function PricingPage() {
         </div>
 
         {/* Pricing Cards */}
-        <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 md:grid-cols-3">
+        <div className="mx-auto grid max-w-6xl grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
           {TIER_ORDER.map((tier) => {
             const plan = PLAN_LIMITS[tier];
             const style = TIER_STYLES[tier];
@@ -199,10 +207,56 @@ export default function PricingPage() {
               </div>
             );
           })}
+
+          {/* Enterprise Card */}
+          <div className="relative rounded-2xl border border-slate-700 ring-2 ring-slate-100 bg-slate-900 p-8 shadow-sm transition-shadow hover:shadow-md">
+            {/* Plan name & price */}
+            <div className="mb-6">
+              <div className="flex items-center gap-2">
+                <span className="inline-block rounded-full px-3 py-1 text-xs font-semibold bg-slate-700 text-slate-200">
+                  Enterprise
+                </span>
+              </div>
+              <div className="mt-4">
+                <div className="flex items-baseline gap-1">
+                  <span className="text-4xl font-bold text-white">Custom</span>
+                </div>
+              </div>
+              <p className="mt-3 text-sm text-slate-400 leading-relaxed">
+                Need more than 10 users, multiple chapters, or a custom build? Let&apos;s talk.
+              </p>
+            </div>
+
+            {/* CTA */}
+            <a
+              href="mailto:enterprise@goodtally.app"
+              className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold transition-colors bg-white text-slate-900 hover:bg-slate-100"
+            >
+              <Mail className="h-4 w-4" aria-hidden="true" />
+              Contact Us
+            </a>
+
+            {/* Features */}
+            <div className="mt-8 space-y-3">
+              {[
+                "Everything in Growth",
+                "Unlimited users",
+                "Multiple chapters",
+                "Custom integrations",
+                "Dedicated onboarding",
+                "SLA & invoicing",
+              ].map((item) => (
+                <div key={item} className="flex items-center gap-3 text-slate-300">
+                  <Check className="h-4 w-4 shrink-0 text-green-400" aria-hidden="true" />
+                  <span className="text-sm">{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Comparison Table */}
-        <div className="mx-auto mt-20 max-w-4xl">
+        <div className="mx-auto mt-20 max-w-5xl">
           <h2 className="mb-8 text-center text-2xl font-bold text-gray-900">
             Compare plans side by side
           </h2>
@@ -211,12 +265,13 @@ export default function PricingPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50">
-                  <th className="px-6 py-4 text-left font-semibold text-gray-900">
+                  <th scope="col" className="px-6 py-4 text-left font-semibold text-gray-900">
                     Feature
                   </th>
                   {TIER_ORDER.map((tier) => (
                     <th
                       key={tier}
+                      scope="col"
                       className={`px-6 py-4 text-center font-semibold ${
                         tier === "starter" ? "text-blue-700" : "text-gray-900"
                       }`}
@@ -224,17 +279,20 @@ export default function PricingPage() {
                       {PLAN_LIMITS[tier].name}
                     </th>
                   ))}
+                  <th scope="col" className="px-6 py-4 text-center font-semibold text-slate-700">
+                    Enterprise
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {FEATURES.map(({ key, label, icon: Icon }) => (
                   <tr key={key} className="hover:bg-gray-50">
-                    <td className="px-6 py-3.5">
+                    <th scope="row" className="px-6 py-3.5 text-left font-normal">
                       <div className="flex items-center gap-2 text-gray-700">
                         <Icon className="h-4 w-4 text-gray-400" aria-hidden="true" />
                         {label}
                       </div>
-                    </td>
+                    </th>
                     {TIER_ORDER.map((tier) => {
                       const value = PLAN_LIMITS[tier][key as keyof typeof PLAN_LIMITS.free];
                       const isBoolean = typeof value === "boolean";
@@ -243,9 +301,9 @@ export default function PricingPage() {
                         <td key={tier} className="px-6 py-3.5 text-center">
                           {isBoolean ? (
                             value ? (
-                              <Check className="mx-auto h-4 w-4 text-green-500" />
+                              <Check className="mx-auto h-4 w-4 text-green-500" aria-label="Included" />
                             ) : (
-                              <X className="mx-auto h-4 w-4 text-gray-300" />
+                              <X className="mx-auto h-4 w-4 text-gray-300" aria-label="Not included" />
                             )
                           ) : (
                             <span className="font-medium text-gray-900">
@@ -255,6 +313,9 @@ export default function PricingPage() {
                         </td>
                       );
                     })}
+                    <td className="px-6 py-3.5 text-center">
+                      <span className="text-sm font-medium text-slate-500">Custom</span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -266,9 +327,12 @@ export default function PricingPage() {
         <div className="mt-16 text-center">
           <p className="text-gray-500">
             Questions? Reach out at{" "}
-            <span className="font-medium text-gray-700">
+            <a
+              href="mailto:support@goodtally.app"
+              className="font-medium text-gray-700 hover:text-blue-600 transition-colors"
+            >
               support@goodtally.app
-            </span>
+            </a>
           </p>
           <Link
             href="/signup"
