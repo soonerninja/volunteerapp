@@ -60,6 +60,34 @@ const features = [
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-white">
+      {/* JSON-LD structured data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "SoftwareApplication",
+            name: "GoodTally",
+            applicationCategory: "BusinessApplication",
+            operatingSystem: "Web",
+            description:
+              "Simple, affordable volunteer management for small nonprofits. Track volunteers, hours, events, and committees.",
+            url: "https://goodtally.app",
+            offers: {
+              "@type": "Offer",
+              price: "0",
+              priceCurrency: "USD",
+              description: "Free plan available",
+            },
+            publisher: {
+              "@type": "Organization",
+              name: "GoodTally",
+              url: "https://goodtally.app",
+              email: "support@goodtally.app",
+            },
+          }),
+        }}
+      />
       {/* Nav */}
       <header className="border-b border-gray-100 bg-white/90 backdrop-blur-sm sticky top-0 z-50">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
@@ -130,7 +158,7 @@ export default function HomePage() {
                 Most volunteer software costs{" "}
                 <strong className="font-semibold">$100–$500/month.</strong>{" "}
                 GoodTally starts at{" "}
-                <strong className="font-semibold">$20/year</strong> — that&apos;s not a typo.
+                <strong className="font-semibold">$49/year</strong> — that&apos;s not a typo.
               </p>
             </div>
           </div>
@@ -277,7 +305,7 @@ export default function HomePage() {
             </Link>
           </div>
           <p className="mt-4 text-xs text-blue-200">
-            Free forever for up to 10 volunteers &middot; Paid plans from $20/yr
+            Free forever for up to 10 volunteers &middot; Paid plans from $49/yr
           </p>
         </div>
       </section>
@@ -288,6 +316,9 @@ export default function HomePage() {
           <div className="flex items-center justify-between">
             <span>GoodTally&trade;</span>
             <div className="flex gap-4">
+              <Link href="/contact" className="hover:text-gray-600">
+                Contact
+              </Link>
               <Link href="/pricing" className="hover:text-gray-600">
                 Pricing
               </Link>

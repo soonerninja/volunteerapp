@@ -7,11 +7,11 @@ interface LogoProps {
 }
 
 /**
- * GoodTally logo: tally-bar icon + "Good Tally" wordmark.
+ * GoodTally logo: tally-bar icon + "GoodTally" wordmark.
  * Use inverted=true on dark/coloured backgrounds.
  */
 export function Logo({ inverted = false, className = "" }: LogoProps) {
-  const barColor = inverted ? "#ffffff" : "#1e293b";
+  const barColor = inverted ? "#ffffff" : "#334155";  // slate-700 on light, white on dark
   const checkColor = inverted ? "#93c5fd" : "#2563eb"; // blue-300 vs blue-600
   const goodColor = inverted ? "#f1f5f9" : "#1e293b";  // slate-100 vs slate-900
   const tallyColor = inverted ? "#93c5fd" : "#2563eb";
@@ -20,28 +20,21 @@ export function Logo({ inverted = false, className = "" }: LogoProps) {
     <div className={`inline-flex items-center gap-2 ${className}`}>
       {/* Icon */}
       <svg
-        width="30"
-        height="26"
-        viewBox="0 0 30 26"
+        width="32"
+        height="28"
+        viewBox="0 0 32 28"
         fill="none"
         aria-hidden="true"
       >
         {/* Three tally bars */}
-        <rect x="1" y="2" width="4.5" height="20" rx="2.25" fill={barColor} />
-        <rect x="8.5" y="2" width="4.5" height="20" rx="2.25" fill={barColor} />
-        <rect x="16" y="2" width="4.5" height="20" rx="2.25" fill={barColor} />
-        {/* Checkmark sweep */}
+        <rect x="1"  y="2" width="5" height="22" rx="2.5" fill={barColor} />
+        <rect x="9"  y="2" width="5" height="22" rx="2.5" fill={barColor} />
+        <rect x="17" y="2" width="5" height="22" rx="2.5" fill={barColor} />
+        {/* Single clean checkmark: lower-left → bottom-V → upper-right */}
         <path
-          d="M3 18 C9 23.5 16 23 22 16"
+          d="M2 16 L9 24 L28 4"
           stroke={checkColor}
-          strokeWidth="3"
-          strokeLinecap="round"
-          fill="none"
-        />
-        <path
-          d="M18.5 19.5 L22 16 L27 7"
-          stroke={checkColor}
-          strokeWidth="3"
+          strokeWidth="3.5"
           strokeLinecap="round"
           strokeLinejoin="round"
           fill="none"

@@ -372,8 +372,9 @@ export default function AccountPage() {
               Change Email
             </Button>
             <p className="mt-2 text-xs text-gray-500">
-              You&apos;ll receive confirmation emails at both your current and new address.
-              Click the links in both to complete the change.
+              We&apos;ll send a verification link to your new email address. Once confirmed,
+              your account will be updated. A security notification will be sent to your
+              current email.
             </p>
           </div>
         </div>

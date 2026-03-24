@@ -12,8 +12,10 @@ import {
   UserCog,
   FileDown,
   X,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/utils/cn";
+import { Logo } from "@/components/ui/logo";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -52,9 +54,9 @@ export function AppSidebar({ open, onClose }: AppSidebarProps) {
         )}
       >
         {/* Logo / App name */}
-        <div className="flex h-16 items-center justify-between border-b border-gray-200 px-6">
-          <Link href="/dashboard" className="text-lg font-bold text-blue-600">
-            GoodTally
+        <div className="flex h-16 items-center justify-between border-b border-gray-200 px-4">
+          <Link href="/dashboard" aria-label="GoodTally dashboard">
+            <Logo />
           </Link>
           <button
             onClick={onClose}
@@ -91,6 +93,18 @@ export function AppSidebar({ open, onClose }: AppSidebarProps) {
             );
           })}
         </nav>
+
+        {/* Sidebar footer */}
+        <div className="border-t border-gray-200 px-3 py-4">
+          <Link
+            href="/contact"
+            onClick={onClose}
+            className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors"
+          >
+            <MessageSquare className="h-4 w-4 shrink-0 text-gray-400" />
+            Need help? Contact us
+          </Link>
+        </div>
       </aside>
     </>
   );

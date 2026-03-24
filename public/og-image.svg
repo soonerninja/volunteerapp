@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <!-- Background -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#eff6ff"/>
+      <stop offset="100%" stop-color="#ffffff"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Blue accent bar left -->
+  <rect x="0" y="0" width="8" height="630" fill="#2563eb"/>
+
+  <!-- Logo icon: 3 tally bars -->
+  <rect x="340" y="195" width="36" height="160" rx="18" fill="#334155"/>
+  <rect x="404" y="195" width="36" height="160" rx="18" fill="#334155"/>
+  <rect x="468" y="195" width="36" height="160" rx="18" fill="#334155"/>
+  <!-- Checkmark -->
+  <path d="M342 320 L380 368 L530 230" stroke="#2563eb" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+  <!-- Wordmark: GoodTally -->
+  <text x="580" y="305" font-family="system-ui, -apple-system, sans-serif" font-size="88" font-weight="700" fill="#1e293b">Good</text>
+  <text x="580" y="305" font-family="system-ui, -apple-system, sans-serif" font-size="88" font-weight="700" fill="#2563eb" dx="248">Tally</text>
+
+  <!-- Tagline -->
+  <text x="340" y="420" font-family="system-ui, -apple-system, sans-serif" font-size="36" fill="#64748b">Volunteer management for nonprofits</text>
+
+  <!-- Price badge -->
+  <rect x="340" y="460" width="340" height="60" rx="30" fill="#fef3c7"/>
+  <text x="510" y="498" font-family="system-ui, -apple-system, sans-serif" font-size="26" font-weight="600" fill="#92400e" text-anchor="middle">Starts at $49/year</text>
+</svg>

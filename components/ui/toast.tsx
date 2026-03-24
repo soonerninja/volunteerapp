@@ -74,6 +74,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {/* Toast container */}
       <div
         aria-live="polite"
+        aria-atomic="false"
+        role="status"
         className="pointer-events-none fixed bottom-0 right-0 z-[100] flex flex-col gap-2 p-4 sm:max-w-sm w-full"
       >
         {toasts.map((t) => {

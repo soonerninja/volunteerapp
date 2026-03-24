@@ -42,7 +42,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
       <AppSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex flex-1 flex-col">
         <AppHeader onMenuClick={() => setSidebarOpen(true)} />
-        <main className="flex-1 p-4 lg:p-6">{children}</main>
+        <main id="main-content" className="flex-1 p-4 lg:p-6">{children}</main>
       </div>
       <GuidedTour />
     </div>

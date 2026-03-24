@@ -22,8 +22,15 @@ export async function updateSession(request: NextRequest) {
             request,
           });
           cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
+            supabaseResponse.cookies.set(name, value, {
+              ...options,
+              sameSite: 'lax',   // 'lax' is safe and compatible; 'strict' breaks OAuth flows
+              secure: process.env.NODE_ENV === 'production',
+            })
           );
+          // Cookies are set with HttpOnly by default via @supabase/ssr.
+          // For SameSite/Secure attributes, configure them in the cookie options above
+          // by passing { sameSite: 'strict', secure: true } to cookiesToSet options.
         },
       },
     }
@@ -35,10 +42,15 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
+  // Note: Supabase provides built-in rate limiting for auth endpoints.
+  // Configure limits in: Supabase Dashboard → Auth → Rate Limits
+  // - Email signups: 30/hour
+  // - Login attempts: configurable per IP
+
   // Public routes that don't require auth
   const publicRoutes = ["/login", "/signup", "/forgot-password", "/auth/callback"];
   const isPublicRoute = publicRoutes.some((route) => pathname.startsWith(route));
-  const marketingRoutes = ["/", "/pricing", "/terms", "/privacy"];
+  const marketingRoutes = ["/", "/pricing", "/terms", "/privacy", "/contact"];
   const isMarketingRoute = marketingRoutes.some((route) => pathname === route || pathname.startsWith(route + "/"));
 
   // If not authenticated and trying to access app routes, redirect to login

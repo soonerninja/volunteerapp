@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Terms of Service – GoodTally",
+  alternates: {
+    canonical: "https://goodtally.app/terms",
+  },
+};
 
 export default function TermsOfServicePage() {
   return (
@@ -584,6 +592,9 @@ export default function TermsOfServicePage() {
           <div className="flex items-center justify-between">
             <span>GoodTally&trade;</span>
             <div className="flex gap-4">
+              <Link href="/contact" className="hover:text-gray-600">
+                Contact
+              </Link>
               <Link href="/pricing" className="hover:text-gray-600">
                 Pricing
               </Link>
