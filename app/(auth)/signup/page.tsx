@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Check } from "lucide-react";
+import { Logo } from "@/components/ui/logo";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -112,7 +113,7 @@ export default function SignupPage() {
   return (
     <div className="grid min-h-screen grid-cols-1 lg:grid-cols-2">
       {/* Left panel — value proposition */}
-      <div className="relative flex flex-col justify-between bg-gray-900 px-8 py-10 lg:px-12">
+      <div className="relative flex flex-col justify-between bg-blue-900 px-8 py-10 lg:px-12">
         {/* Subtle radial glow */}
         <div
           className="pointer-events-none absolute right-0 top-0 h-96 w-96 -translate-y-1/4 translate-x-1/4 rounded-full bg-blue-600/20 blur-3xl"
@@ -120,10 +121,9 @@ export default function SignupPage() {
         />
 
         {/* Logo */}
-        <Link href="/" className="relative z-10 flex items-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.svg" alt="GoodTally" className="h-8 w-auto brightness-0 invert" />
-        </Link>
+        <div className="relative z-10">
+          <Logo inverted />
+        </div>
 
         {/* Headline + bullets */}
         <div className="relative z-10 py-12">
@@ -151,7 +151,7 @@ export default function SignupPage() {
         </div>
 
         {/* Bottom tagline */}
-        <p className="relative z-10 text-xs text-gray-600">
+        <p className="relative z-10 text-xs text-blue-300">
           GoodTally &mdash; Volunteer management for good.
         </p>
       </div>

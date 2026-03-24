@@ -16,6 +16,7 @@ import {
   ArrowRight,
   Mail,
 } from "lucide-react";
+import { LogoLink } from "@/components/ui/logo";
 
 export const metadata: Metadata = {
   title: "Pricing – GoodTally",
@@ -61,9 +62,7 @@ export default function PricingPage() {
       {/* Header */}
       <header className="border-b border-gray-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-          <Link href="/" className="text-lg font-bold text-blue-600">
-            GoodTally
-          </Link>
+          <LogoLink />
           <div className="flex items-center gap-4">
             <Link
               href="/login"
@@ -209,11 +208,11 @@ export default function PricingPage() {
           })}
 
           {/* Enterprise Card */}
-          <div className="relative rounded-2xl border border-slate-700 ring-2 ring-slate-100 bg-slate-900 p-8 shadow-sm transition-shadow hover:shadow-md">
+          <div className="relative rounded-2xl border border-slate-500 ring-2 ring-slate-100 bg-slate-700 p-8 shadow-sm transition-shadow hover:shadow-md">
             {/* Plan name & price */}
             <div className="mb-6">
               <div className="flex items-center gap-2">
-                <span className="inline-block rounded-full px-3 py-1 text-xs font-semibold bg-slate-700 text-slate-200">
+                <span className="inline-block rounded-full px-3 py-1 text-xs font-semibold bg-slate-500 text-slate-100">
                   Enterprise
                 </span>
               </div>
@@ -222,7 +221,7 @@ export default function PricingPage() {
                   <span className="text-4xl font-bold text-white">Custom</span>
                 </div>
               </div>
-              <p className="mt-3 text-sm text-slate-400 leading-relaxed">
+              <p className="mt-3 text-sm text-slate-300 leading-relaxed">
                 Need more than 10 users, multiple chapters, or a custom build? Let&apos;s talk.
               </p>
             </div>
@@ -230,7 +229,7 @@ export default function PricingPage() {
             {/* CTA */}
             <a
               href="mailto:enterprise@goodtally.app"
-              className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold transition-colors bg-white text-slate-900 hover:bg-slate-100"
+              className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold transition-colors bg-white text-slate-800 hover:bg-slate-100"
             >
               <Mail className="h-4 w-4" aria-hidden="true" />
               Contact Us
@@ -246,8 +245,8 @@ export default function PricingPage() {
                 "Dedicated onboarding",
                 "SLA & invoicing",
               ].map((item) => (
-                <div key={item} className="flex items-center gap-3 text-slate-300">
-                  <Check className="h-4 w-4 shrink-0 text-green-400" aria-hidden="true" />
+                <div key={item} className="flex items-center gap-3 text-slate-200">
+                  <Check className="h-4 w-4 shrink-0 text-blue-300" aria-hidden="true" />
                   <span className="text-sm">{item}</span>
                 </div>
               ))}

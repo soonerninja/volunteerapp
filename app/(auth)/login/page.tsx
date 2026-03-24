@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { LogoLink } from "@/components/ui/logo";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -13,6 +14,8 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const notice = searchParams.get("notice");
   const supabase = createClient();
 
   async function handleSubmit(e: React.FormEvent) {
@@ -39,9 +42,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-blue-50 to-white">
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-4">
-        <Link href="/" className="text-lg font-bold text-blue-600">
-          GoodTally
-        </Link>
+        <LogoLink />
         <p className="text-sm text-gray-500">
           New here?{" "}
           <Link
@@ -62,6 +63,15 @@ export default function LoginPage() {
               Sign in to your GoodTally account
             </p>
           </div>
+
+          {notice && (
+            <div
+              role="status"
+              className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+            >
+              {notice}
+            </div>
+          )}
 
           <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
             <form onSubmit={handleSubmit} className="space-y-4">

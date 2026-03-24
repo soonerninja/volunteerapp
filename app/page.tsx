@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Users, Calendar, UsersRound, Clock, FileDown, Shield } from "lucide-react";
+import { LogoLink } from "@/components/ui/logo";
 
 export const metadata: Metadata = {
   title: "GoodTally - Volunteer Management for Nonprofits",
@@ -62,10 +63,7 @@ export default function HomePage() {
       {/* Nav */}
       <header className="border-b border-gray-100 bg-white/90 backdrop-blur-sm sticky top-0 z-50">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-          <Link href="/" className="flex items-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.svg" alt="GoodTally" className="h-8 w-auto" />
-          </Link>
+          <LogoLink />
           <div className="flex items-center gap-4">
             <Link
               href="/login"
