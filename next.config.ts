@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const securityHeaders = [
   // Content Security Policy
@@ -46,4 +47,16 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  org: "goodtally",
+  project: "javascript-nextjs",
+
+  // Upload source maps for readable production stack traces
+  silent: !process.env.CI,
+  widenClientFileUpload: true,
+  hideSourceMaps: true,
+  disableLogger: true,
+
+  // Automatically tree-shake Sentry logger statements
+  automaticVercelMonitors: true,
+});
