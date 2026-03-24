@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -8,14 +8,26 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LogoLink } from "@/components/ui/logo";
 
-export default function LoginPage() {
+function NoticeBanner() {
+  const searchParams = useSearchParams();
+  const notice = searchParams.get("notice");
+  if (!notice) return null;
+  return (
+    <div
+      role="status"
+      className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+    >
+      {notice}
+    </div>
+  );
+}
+
+function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const notice = searchParams.get("notice");
   const supabase = createClient();
 
   async function handleSubmit(e: React.FormEvent) {
@@ -38,6 +50,57 @@ export default function LoginPage() {
     router.refresh();
   }
 
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <div
+            role="alert"
+            className="rounded-lg bg-red-50 p-3 text-sm text-red-700"
+          >
+            {error}
+          </div>
+        )}
+
+        <Input
+          id="email"
+          label="Email"
+          type="email"
+          placeholder="you@nonprofit.org"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          autoFocus
+        />
+
+        <Input
+          id="password"
+          label="Password"
+          type="password"
+          placeholder="Your password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+
+        <div className="flex items-center justify-end">
+          <Link
+            href="/forgot-password"
+            className="text-sm text-blue-600 hover:text-blue-700"
+          >
+            Forgot password?
+          </Link>
+        </div>
+
+        <Button type="submit" loading={loading} className="w-full">
+          Sign In
+        </Button>
+      </form>
+    </div>
+  );
+}
+
+export default function LoginPage() {
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-blue-50 to-white">
       {/* Header */}
@@ -64,61 +127,11 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {notice && (
-            <div
-              role="status"
-              className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
-            >
-              {notice}
-            </div>
-          )}
+          <Suspense>
+            <NoticeBanner />
+          </Suspense>
 
-          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <div
-                  role="alert"
-                  className="rounded-lg bg-red-50 p-3 text-sm text-red-700"
-                >
-                  {error}
-                </div>
-              )}
-
-              <Input
-                id="email"
-                label="Email"
-                type="email"
-                placeholder="you@nonprofit.org"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoFocus
-              />
-
-              <Input
-                id="password"
-                label="Password"
-                type="password"
-                placeholder="Your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-
-              <div className="flex items-center justify-end">
-                <Link
-                  href="/forgot-password"
-                  className="text-sm text-blue-600 hover:text-blue-700"
-                >
-                  Forgot password?
-                </Link>
-              </div>
-
-              <Button type="submit" loading={loading} className="w-full">
-                Sign In
-              </Button>
-            </form>
-          </div>
+          <LoginForm />
         </div>
       </div>
     </div>
