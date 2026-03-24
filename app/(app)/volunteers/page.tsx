@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
 import { useOrg } from "@/hooks/use-org";
 import { usePermissions } from "@/hooks/use-permissions";
 import { usePlan } from "@/hooks/use-plan";
@@ -10,8 +13,12 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PlanLimitBadge, UpgradePrompt } from "@/components/ui/upgrade-prompt";
-import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import { formatDate } from "@/utils/format";
+
+const ConfirmDeleteDialog = dynamic(
+  () => import("@/components/ui/confirm-delete-dialog").then((m) => m.ConfirmDeleteDialog),
+  { loading: () => null }
+);
 import type { Volunteer, Skill, Role, Committee } from "@/types/database";
 import {
   Users,
@@ -48,12 +55,15 @@ const STATUS_COLORS: Record<string, string> = {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^[+\d\s().-]{7,20}$/;
+const PAGE_SIZE = 25;
 
 export default function VolunteersPage() {
   const { supabase, orgId, profile } = useOrg();
   const { canEdit, canDelete } = usePermissions();
   const { canAdd, usageLabel, refreshCounts } = usePlan();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
 
   const [volunteers, setVolunteers] = useState<VolunteerWithDetails[]>([]);
   const [skills, setSkills] = useState<Skill[]>([]);
@@ -412,6 +422,15 @@ export default function VolunteersPage() {
     setRoleFilter("");
     setCommitteeFilter("");
   };
+
+  // Pagination over filtered results
+  const totalCount = filtered.length;
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+  const safePage = Math.min(page, Math.max(1, totalPages));
+  const offset = (safePage - 1) * PAGE_SIZE;
+  const paginatedVolunteers = filtered.slice(offset, offset + PAGE_SIZE);
+
+  const buildPageHref = (p: number) => `?page=${p}`;
 
   const skillMap = new Map(skills.map((s) => [s.id, s.name]));
   const roleMap = new Map(roles.map((r) => [r.id, r.name]));
@@ -808,7 +827,7 @@ export default function VolunteersPage() {
         />
       ) : (
         <div className="space-y-3">
-          {filtered.map((vol) => {
+          {paginatedVolunteers.map((vol) => {
             const volSkillNames = vol.skillIds
               .map((id) => skillMap.get(id))
               .filter(Boolean);
@@ -902,6 +921,35 @@ export default function VolunteersPage() {
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalCount > PAGE_SIZE && (
+        <div className="flex items-center justify-between border-t border-gray-200 pt-4 mt-4">
+          <p className="text-sm text-gray-500">
+            Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, totalCount)} of {totalCount}
+          </p>
+          <div className="flex gap-2">
+            <Link
+              href={buildPageHref(safePage - 1)}
+              className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+                safePage <= 1 ? 'pointer-events-none text-gray-300 border-gray-100' : 'text-gray-700 border-gray-300 hover:bg-gray-50'
+              }`}
+              aria-disabled={safePage <= 1}
+            >
+              Previous
+            </Link>
+            <Link
+              href={buildPageHref(safePage + 1)}
+              className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+                safePage * PAGE_SIZE >= totalCount ? 'pointer-events-none text-gray-300 border-gray-100' : 'text-gray-700 border-gray-300 hover:bg-gray-50'
+              }`}
+              aria-disabled={safePage * PAGE_SIZE >= totalCount}
+            >
+              Next
+            </Link>
+          </div>
         </div>
       )}
     </div>

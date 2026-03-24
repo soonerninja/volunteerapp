@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 
 /** Validate that a redirect path is a safe, relative internal path. */
 function sanitizeRedirectPath(path: string): string {
-  // Must start with a single slash and not contain protocol-relative URLs
   if (
     !path.startsWith("/") ||
     path.startsWith("//") ||
@@ -18,14 +17,26 @@ function sanitizeRedirectPath(path: string): string {
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
+  const errorCode = searchParams.get("error_code");
   const next = sanitizeRedirectPath(searchParams.get("next") ?? "/dashboard");
+
+  // Supabase sends ?error_code=otp_expired (and similar) when a magic link
+  // or password-reset token is invalid or has expired.
+  if (errorCode) {
+    const friendly =
+      errorCode === "otp_expired"
+        ? "That link has expired. Please request a new one."
+        : "The link is invalid or has already been used.";
+    return NextResponse.redirect(
+      `${origin}/login?notice=${encodeURIComponent(friendly)}`
+    );
+  }
 
   if (code) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      // Check if user has an org — if not, redirect to onboarding
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -46,6 +57,8 @@ export async function GET(request: Request) {
     }
   }
 
-  // Auth code error — redirect to login with error
-  return NextResponse.redirect(`${origin}/login`);
+  // Fallback: something unexpected happened
+  return NextResponse.redirect(
+    `${origin}/login?notice=${encodeURIComponent("Something went wrong. Please try again.")}`
+  );
 }

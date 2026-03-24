@@ -60,6 +60,10 @@ export default function ExportsPage() {
 
   const handleExport = async (exportId: string) => {
     if (!orgId) return;
+    if (!plan.hasFeature('exports')) {
+      setError('CSV exports require the Starter plan or higher. Upgrade in Settings > Plan & Billing.');
+      return;
+    }
     setLoading(exportId);
     setError("");
 

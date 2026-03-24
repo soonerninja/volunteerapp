@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { LogoLink } from "@/components/ui/logo";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -18,8 +19,13 @@ export default function ForgotPasswordPage() {
     setError("");
     setLoading(true);
 
+    // Use NEXT_PUBLIC_SITE_URL when set so the reset link always points to
+    // the correct domain regardless of where this page is loaded from.
+    const origin =
+      process.env.NEXT_PUBLIC_SITE_URL ?? window.location.origin;
+
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/settings`,
+      redirectTo: `${origin}/auth/callback?next=/settings/account`,
     });
 
     if (error) {
@@ -36,33 +42,37 @@ export default function ForgotPasswordPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-blue-50 to-white px-4">
         <div className="w-full max-w-sm text-center">
-          <div className="mb-4 inline-block rounded-full bg-green-50 p-3">
+          <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 mx-auto">
             <svg
-              className="mx-auto h-6 w-6 text-green-600"
+              className="h-7 w-7 text-blue-600"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
+              aria-hidden="true"
             >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M3 19v-8.93a2 2 0 01.89-1.664l7-4.666a2 2 0 012.22 0l7 4.666A2 2 0 0121 10.07V19M3 19a2 2 0 002 2h14a2 2 0 002-2M3 19l6.75-4.5M21 19l-6.75-4.5M3 10l6.75 4.5M21 10l-6.75 4.5m0 0l-1.14.76a2 2 0 01-2.22 0l-1.14-.76"
+                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
               />
             </svg>
           </div>
-          <h2 className="text-lg font-semibold text-gray-900">
-            Check your email
-          </h2>
-          <p className="mt-2 text-sm text-gray-600">
-            If an account exists for <strong>{email}</strong>, we sent a
-            password reset link.
+          <h2 className="text-xl font-bold text-gray-900">Check your inbox</h2>
+          <p className="mt-3 text-sm leading-relaxed text-gray-600">
+            If <strong className="font-medium">{email}</strong> is associated
+            with a GoodTally account, you&apos;ll receive a reset link shortly.
+            Check your spam folder if it doesn&apos;t arrive within a few
+            minutes.
+          </p>
+          <p className="mt-3 text-xs text-gray-400">
+            The link expires after 1 hour. Request a new one if needed.
           </p>
           <Link
             href="/login"
-            className="mt-6 inline-block text-sm text-blue-600 hover:text-blue-700"
+            className="mt-6 inline-block text-sm font-medium text-blue-600 hover:text-blue-700"
           >
-            Back to sign in
+            &larr; Back to sign in
           </Link>
         </div>
       </div>
@@ -73,9 +83,7 @@ export default function ForgotPasswordPage() {
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-blue-50 to-white">
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-4">
-        <Link href="/" className="text-lg font-bold text-blue-600">
-          GoodTally
-        </Link>
+        <LogoLink />
         <p className="text-sm text-gray-500">
           Remember your password?{" "}
           <Link
@@ -112,7 +120,7 @@ export default function ForgotPasswordPage() {
 
               <Input
                 id="email"
-                label="Email"
+                label="Email address"
                 type="email"
                 placeholder="you@nonprofit.org"
                 value={email}
@@ -126,6 +134,10 @@ export default function ForgotPasswordPage() {
               </Button>
             </form>
           </div>
+
+          <p className="mt-4 text-center text-xs text-gray-400">
+            For security, reset links expire after 1 hour.
+          </p>
         </div>
       </div>
     </div>

@@ -4,10 +4,12 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
   useCallback,
   type ReactNode,
 } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import type { Profile } from "@/types/database";
@@ -29,6 +31,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  // Track whether the user was previously signed in to detect unexpected sign-outs
+  const wasSignedIn = useRef(false);
+  // Track deliberate sign-outs initiated via the signOut function
+  const isDeliberateSignOut = useRef(false);
 
   const fetchProfile = useCallback(async (userId: string) => {
     const { data } = await supabase
@@ -57,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
+        wasSignedIn.current = true;
         setUser(session.user);
         // Use setTimeout to avoid Supabase deadlock when fetching profile
         // during auth state change callback
@@ -66,6 +74,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           clearTimeout(timeout);
         }, 0);
       } else {
+        if (event === 'SIGNED_OUT' && wasSignedIn.current && !isDeliberateSignOut.current) {
+          router.push('/login?notice=' + encodeURIComponent('Your session expired. Please sign in again.'));
+        }
+        wasSignedIn.current = false;
+        isDeliberateSignOut.current = false;
         setUser(null);
         setProfile(null);
         setLoading(false);
@@ -80,6 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [fetchProfile]);
 
   const signOut = useCallback(async () => {
+    isDeliberateSignOut.current = true;
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);

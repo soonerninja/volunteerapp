@@ -1,3 +1,20 @@
 User-agent: *
 Allow: /
+Allow: /pricing
+Allow: /contact
+Allow: /signup
+Allow: /login
+Allow: /terms
+Allow: /privacy
+
+# Block authenticated app pages
+Disallow: /dashboard
+Disallow: /volunteers
+Disallow: /events
+Disallow: /committees
+Disallow: /exports
+Disallow: /settings
+Disallow: /onboarding
+Disallow: /auth/
+
 Sitemap: https://goodtally.app/sitemap.xml

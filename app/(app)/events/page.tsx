@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useOrg } from "@/hooks/use-org";
 import { usePermissions } from "@/hooks/use-permissions";
 import { usePlan } from "@/hooks/use-plan";
@@ -23,6 +25,8 @@ import {
 
 type EventWithSignups = Event & { signup_count: number };
 
+const PAGE_SIZE = 25;
+
 const STATUS_OPTIONS = [
   { value: "", label: "All Events" },
   { value: "upcoming", label: "Upcoming" },
@@ -43,8 +47,11 @@ export default function EventsPage() {
   const { canEdit } = usePermissions();
   const { canAdd, usageLabel, refreshCounts } = usePlan();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
 
   const [events, setEvents] = useState<EventWithSignups[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("upcoming");
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -68,11 +75,26 @@ export default function EventsPage() {
     if (!orgId) return;
     setLoading(true);
 
+    const offset = (page - 1) * PAGE_SIZE;
+
+    // Count query
+    let countQuery = supabase
+      .from("events")
+      .select("*", { count: "exact", head: true })
+      .eq("org_id", orgId);
+    if (statusFilter) {
+      countQuery = countQuery.eq("status", statusFilter);
+    }
+    const { count } = await countQuery;
+    setTotalCount(count ?? 0);
+
+    // Data query with pagination
     let query = supabase
       .from("events")
       .select("*, event_volunteers(count)")
       .eq("org_id", orgId)
-      .order("start_date", { ascending: false });
+      .order("start_date", { ascending: false })
+      .range(offset, offset + PAGE_SIZE - 1);
 
     if (statusFilter) {
       query = query.eq("status", statusFilter);
@@ -87,7 +109,7 @@ export default function EventsPage() {
     }));
     setEvents(eventsWithCount);
     setLoading(false);
-  }, [orgId, supabase, statusFilter]);
+  }, [orgId, supabase, statusFilter, page]);
 
   useEffect(() => {
     fetchEvents();
@@ -396,6 +418,35 @@ export default function EventsPage() {
               </div>
             </Card>
           ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalCount > PAGE_SIZE && (
+        <div className="flex items-center justify-between border-t border-gray-200 pt-4 mt-4">
+          <p className="text-sm text-gray-500">
+            Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, totalCount)} of {totalCount}
+          </p>
+          <div className="flex gap-2">
+            <Link
+              href={`?page=${page - 1}`}
+              className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+                page <= 1 ? 'pointer-events-none text-gray-300 border-gray-100' : 'text-gray-700 border-gray-300 hover:bg-gray-50'
+              }`}
+              aria-disabled={page <= 1}
+            >
+              Previous
+            </Link>
+            <Link
+              href={`?page=${page + 1}`}
+              className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+                page * PAGE_SIZE >= totalCount ? 'pointer-events-none text-gray-300 border-gray-100' : 'text-gray-700 border-gray-300 hover:bg-gray-50'
+              }`}
+              aria-disabled={page * PAGE_SIZE >= totalCount}
+            >
+              Next
+            </Link>
+          </div>
         </div>
       )}
     </div>

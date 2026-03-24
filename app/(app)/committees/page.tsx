@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useFocusTrap } from "@/hooks/use-focus-trap";
 import { useOrg } from "@/hooks/use-org";
 import { usePermissions } from "@/hooks/use-permissions";
 import { usePlan } from "@/hooks/use-plan";
@@ -117,6 +118,11 @@ export default function CommitteesPage() {
   const priorityInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({ name: "", description: "" });
+
+  // Focus trap refs for modals
+  const createFormTriggerRef = useRef<HTMLButtonElement>(null);
+  const formDialogRef = useFocusTrap<HTMLDivElement>(showForm, createFormTriggerRef);
+  const membersDialogRef = useFocusTrap<HTMLDivElement>(!!selectedCommittee);
 
   const fetchCommittees = useCallback(async () => {
     if (!orgId) return;
@@ -410,12 +416,31 @@ export default function CommitteesPage() {
   };
 
   const togglePriority = async (priority: CommitteePriority) => {
+    // Optimistic update — flip completed immediately
+    setCommittees(prev =>
+      prev.map(c => ({
+        ...c,
+        priorities: c.priorities.map(p =>
+          p.id === priority.id ? { ...p, completed: !p.completed } : p
+        ),
+      }))
+    );
+
     const { error: updateErr } = await supabase
       .from("committee_priorities")
       .update({ completed: !priority.completed })
       .eq("id", priority.id);
 
     if (updateErr) {
+      // Revert on failure
+      setCommittees(prev =>
+        prev.map(c => ({
+          ...c,
+          priorities: c.priorities.map(p =>
+            p.id === priority.id ? { ...p, completed: priority.completed } : p
+          ),
+        }))
+      );
       setError(updateErr.message);
       return;
     }
@@ -471,6 +496,7 @@ export default function CommitteesPage() {
               />
             )}
             <Button
+              ref={createFormTriggerRef}
               onClick={() => setShowForm(true)}
               disabled={!canAdd("committees")}
             >
@@ -494,6 +520,7 @@ export default function CommitteesPage() {
       {/* Create/Edit Form Modal */}
       {showForm && (
         <div
+          ref={formDialogRef}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
           role="dialog"
           aria-modal="true"
@@ -570,6 +597,7 @@ export default function CommitteesPage() {
       {/* Members Panel Modal */}
       {selectedCommittee && (
         <div
+          ref={membersDialogRef}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
           role="dialog"
           aria-modal="true"

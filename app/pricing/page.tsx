@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { PLAN_LIMITS, TIER_ORDER, formatLimit } from "@/lib/plan-limits";
 import type { OrganizationTier } from "@/types/database";
@@ -13,7 +14,18 @@ import {
   Paintbrush,
   Headphones,
   ArrowRight,
+  Mail,
 } from "lucide-react";
+import { LogoLink } from "@/components/ui/logo";
+
+export const metadata: Metadata = {
+  title: "Pricing – GoodTally",
+  description:
+    "Simple, transparent pricing for volunteer management. Start free, upgrade as you grow. Plans for nonprofits of every size.",
+  alternates: {
+    canonical: "https://goodtally.app/pricing",
+  },
+};
 
 const TIER_STYLES: Record<OrganizationTier, { ring: string; badge: string; btn: string; bg: string }> = {
   free: {
@@ -53,9 +65,7 @@ export default function PricingPage() {
       {/* Header */}
       <header className="border-b border-gray-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-          <Link href="/" className="text-lg font-bold text-blue-600">
-            GoodTally
-          </Link>
+          <LogoLink />
           <div className="flex items-center gap-4">
             <Link
               href="/login"
@@ -90,16 +100,17 @@ export default function PricingPage() {
             Early Adopter Special &mdash; 50% Off Your First Year
           </h2>
           <p className="mt-1 text-sm text-blue-700">
-            Be one of the first to join GoodTally and save 50% on your first year. Limited time offer.
+            Be one of the first to join GoodTally and lock in 50% off your first year. Offer ends when we exit early access.
           </p>
         </div>
 
         {/* Pricing Cards */}
-        <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 md:grid-cols-3">
+        <div className="mx-auto grid max-w-6xl grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
           {TIER_ORDER.map((tier) => {
             const plan = PLAN_LIMITS[tier];
             const style = TIER_STYLES[tier];
             const isPopular = tier === "starter";
+            const isGrowth = tier === "growth";
 
             return (
               <div
@@ -110,6 +121,13 @@ export default function PricingPage() {
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
                     <span className="rounded-full bg-blue-600 px-4 py-1 text-xs font-semibold text-white shadow-sm">
                       Most Popular
+                    </span>
+                  </div>
+                )}
+                {isGrowth && (
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
+                    <span className="rounded-full bg-purple-600 px-4 py-1 text-xs font-semibold text-white shadow-sm">
+                      Coming Soon
                     </span>
                   </div>
                 )}
@@ -150,59 +168,127 @@ export default function PricingPage() {
                 </div>
 
                 {/* CTA */}
-                <Link
-                  href="/signup"
-                  className={`flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold transition-colors ${style.btn}`}
-                >
-                  {plan.price === 0 ? "Get Started Free" : `Start with ${plan.name}`}
-                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                </Link>
+                {isGrowth ? (
+                  <a href="mailto:notify@goodtally.app" className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold transition-colors bg-purple-100 text-purple-700 hover:bg-purple-200 border border-purple-200">Get Notified When Available <ArrowRight className="h-4 w-4" /></a>
+                ) : (
+                  <Link
+                    href="/signup"
+                    className={`flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold transition-colors ${style.btn}`}
+                  >
+                    {plan.price === 0 ? "Get Started Free" : `Start with ${plan.name}`}
+                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  </Link>
+                )}
 
                 {/* Features */}
-                <div className="mt-8 space-y-3">
-                  {FEATURES.map(({ key, label, icon: Icon }) => {
-                    const value = plan[key as keyof typeof plan];
-                    const isBoolean = typeof value === "boolean";
-                    const enabled = isBoolean ? value : true;
-                    const displayValue = isBoolean
-                      ? null
-                      : formatLimit(value as number);
-
-                    return (
-                      <div
-                        key={key}
-                        className={`flex items-center gap-3 ${
-                          enabled ? "text-gray-700" : "text-gray-400"
-                        }`}
-                      >
-                        {enabled ? (
-                          <Check
-                            className="h-4 w-4 shrink-0 text-green-500"
-                            aria-hidden="true"
-                          />
-                        ) : (
-                          <X
-                            className="h-4 w-4 shrink-0 text-gray-300"
-                            aria-hidden="true"
-                          />
-                        )}
-                        <span className="text-sm">
-                          {displayValue && (
-                            <span className="font-semibold">{displayValue} </span>
-                          )}
-                          {label}
-                        </span>
+                {isGrowth ? (
+                  <div className="mt-8 space-y-3">
+                    {[
+                      "Volunteer self-service login portal",
+                      "Automated email notifications",
+                      "Custom branding & white-label",
+                      "CSV exports & advanced reports",
+                      "Priority support",
+                      "Unlimited volunteers & events",
+                    ].map((item) => (
+                      <div key={item} className="flex items-center gap-3 text-gray-700">
+                        <Check className="h-4 w-4 shrink-0 text-green-500" aria-hidden="true" />
+                        <span className="text-sm">{item}</span>
                       </div>
-                    );
-                  })}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mt-8 space-y-3">
+                    {FEATURES.map(({ key, label, icon: Icon }) => {
+                      const value = plan[key as keyof typeof plan];
+                      const isBoolean = typeof value === "boolean";
+                      const enabled = isBoolean ? value : true;
+                      const displayValue = isBoolean
+                        ? null
+                        : formatLimit(value as number);
+
+                      return (
+                        <div
+                          key={key}
+                          className={`flex items-center gap-3 ${
+                            enabled ? "text-gray-700" : "text-gray-400"
+                          }`}
+                        >
+                          {enabled ? (
+                            <Check
+                              className="h-4 w-4 shrink-0 text-green-500"
+                              aria-hidden="true"
+                            />
+                          ) : (
+                            <X
+                              className="h-4 w-4 shrink-0 text-gray-300"
+                              aria-hidden="true"
+                            />
+                          )}
+                          <span className="text-sm">
+                            {displayValue && (
+                              <span className="font-semibold">{displayValue} </span>
+                            )}
+                            {label}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           })}
+
+          {/* Enterprise Card */}
+          <div className="relative rounded-2xl border border-slate-500 ring-2 ring-slate-100 bg-slate-700 p-8 shadow-sm transition-shadow hover:shadow-md">
+            {/* Plan name & price */}
+            <div className="mb-6">
+              <div className="flex items-center gap-2">
+                <span className="inline-block rounded-full px-3 py-1 text-xs font-semibold bg-slate-500 text-slate-100">
+                  Enterprise
+                </span>
+              </div>
+              <div className="mt-4">
+                <div className="flex items-baseline gap-1">
+                  <span className="text-4xl font-bold text-white">Custom</span>
+                </div>
+              </div>
+              <p className="mt-3 text-sm text-slate-300 leading-relaxed">
+                Need more than 10 users, multiple chapters, or a custom build? Let&apos;s talk.
+              </p>
+            </div>
+
+            {/* CTA */}
+            <a
+              href="mailto:enterprise@goodtally.app"
+              className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold transition-colors bg-white text-slate-800 hover:bg-slate-100"
+            >
+              <Mail className="h-4 w-4" aria-hidden="true" />
+              Contact Us
+            </a>
+
+            {/* Features */}
+            <div className="mt-8 space-y-3">
+              {[
+                "Everything in Growth",
+                "Unlimited users",
+                "Multiple chapters",
+                "Custom integrations",
+                "Dedicated onboarding",
+                "SLA & invoicing",
+              ].map((item) => (
+                <div key={item} className="flex items-center gap-3 text-slate-200">
+                  <Check className="h-4 w-4 shrink-0 text-blue-300" aria-hidden="true" />
+                  <span className="text-sm">{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Comparison Table */}
-        <div className="mx-auto mt-20 max-w-4xl">
+        <div className="mx-auto mt-20 max-w-5xl">
           <h2 className="mb-8 text-center text-2xl font-bold text-gray-900">
             Compare plans side by side
           </h2>
@@ -211,12 +297,13 @@ export default function PricingPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50">
-                  <th className="px-6 py-4 text-left font-semibold text-gray-900">
+                  <th scope="col" className="px-6 py-4 text-left font-semibold text-gray-900">
                     Feature
                   </th>
                   {TIER_ORDER.map((tier) => (
                     <th
                       key={tier}
+                      scope="col"
                       className={`px-6 py-4 text-center font-semibold ${
                         tier === "starter" ? "text-blue-700" : "text-gray-900"
                       }`}
@@ -224,17 +311,20 @@ export default function PricingPage() {
                       {PLAN_LIMITS[tier].name}
                     </th>
                   ))}
+                  <th scope="col" className="px-6 py-4 text-center font-semibold text-slate-700">
+                    Enterprise
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {FEATURES.map(({ key, label, icon: Icon }) => (
                   <tr key={key} className="hover:bg-gray-50">
-                    <td className="px-6 py-3.5">
+                    <th scope="row" className="px-6 py-3.5 text-left font-normal">
                       <div className="flex items-center gap-2 text-gray-700">
                         <Icon className="h-4 w-4 text-gray-400" aria-hidden="true" />
                         {label}
                       </div>
-                    </td>
+                    </th>
                     {TIER_ORDER.map((tier) => {
                       const value = PLAN_LIMITS[tier][key as keyof typeof PLAN_LIMITS.free];
                       const isBoolean = typeof value === "boolean";
@@ -243,9 +333,9 @@ export default function PricingPage() {
                         <td key={tier} className="px-6 py-3.5 text-center">
                           {isBoolean ? (
                             value ? (
-                              <Check className="mx-auto h-4 w-4 text-green-500" />
+                              <Check className="mx-auto h-4 w-4 text-green-500" aria-label="Included" />
                             ) : (
-                              <X className="mx-auto h-4 w-4 text-gray-300" />
+                              <X className="mx-auto h-4 w-4 text-gray-300" aria-label="Not included" />
                             )
                           ) : (
                             <span className="font-medium text-gray-900">
@@ -255,6 +345,9 @@ export default function PricingPage() {
                         </td>
                       );
                     })}
+                    <td className="px-6 py-3.5 text-center">
+                      <span className="text-sm font-medium text-slate-500">Custom</span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -262,13 +355,66 @@ export default function PricingPage() {
           </div>
         </div>
 
-        {/* FAQ / Bottom CTA */}
+        {/* FAQ */}
+        <div className="mx-auto mt-20 max-w-2xl">
+          <h2 className="mb-8 text-center text-2xl font-bold text-gray-900">
+            Common questions
+          </h2>
+          <div className="space-y-2">
+            {[
+              {
+                q: "What happens to my data if I cancel?",
+                a: "Your data is yours. If you cancel, you have 30 days to export everything via CSV before we remove it from our systems. We'll never hold your volunteer data hostage.",
+              },
+              {
+                q: "Can I upgrade or downgrade mid-year?",
+                a: "You can upgrade at any time and the new plan takes effect immediately. Downgrades take effect at the end of your current annual billing cycle — you keep your current features until then.",
+              },
+              {
+                q: "Do you offer nonprofit discounts?",
+                a: "At $49–$99/year we're already priced specifically for nonprofits. If your organization has a genuine financial hardship, reach out at support@goodtally.app and we'll work something out.",
+              },
+              {
+                q: "Can my volunteers use GoodTally too?",
+                a: "Currently GoodTally is a management tool used by staff and admins to track volunteers — volunteers don't need accounts. Volunteer self-service login portals are coming in the Growth plan.",
+              },
+              {
+                q: "When will the Growth plan be available?",
+                a: "We're actively building Growth features including volunteer login portals, email notifications, and custom branding. Join the notify list to be first to know when it launches.",
+              },
+              {
+                q: "How is billing handled?",
+                a: "All paid plans are billed annually via Stripe. You'll receive a receipt by email. We do not store your full credit card number. All fees are non-refundable per our Terms of Service.",
+              },
+            ].map(({ q, a }) => (
+              <details
+                key={q}
+                className="group rounded-xl border border-gray-200 bg-white open:shadow-sm"
+              >
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-sm font-semibold text-gray-900 hover:bg-gray-50 rounded-xl group-open:rounded-b-none group-open:border-b group-open:border-gray-100 select-none">
+                  {q}
+                  <span className="shrink-0 text-gray-400 transition-transform group-open:rotate-45 text-lg leading-none">
+                    +
+                  </span>
+                </summary>
+                <p className="px-5 pb-4 pt-3 text-sm leading-relaxed text-gray-600">
+                  {a}
+                </p>
+              </details>
+            ))}
+          </div>
+        </div>
+
+        {/* Bottom CTA */}
         <div className="mt-16 text-center">
           <p className="text-gray-500">
             Questions? Reach out at{" "}
-            <span className="font-medium text-gray-700">
+            <a
+              href="mailto:support@goodtally.app"
+              className="font-medium text-gray-700 hover:text-blue-600 transition-colors"
+            >
               support@goodtally.app
-            </span>
+            </a>
           </p>
           <Link
             href="/signup"
@@ -286,6 +432,9 @@ export default function PricingPage() {
           <div className="flex items-center justify-between">
             <span>GoodTally&trade;</span>
             <div className="flex gap-4">
+              <Link href="/contact" className="hover:text-gray-600">
+                Contact
+              </Link>
               <Link href="/terms" className="hover:text-gray-600">
                 Terms of Service
               </Link>
