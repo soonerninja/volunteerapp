@@ -339,7 +339,7 @@ export default function EventDetailPage() {
             </h2>
 
             {error && (
-              <div role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
+              <div role="alert" aria-live="polite" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
                 {error}
               </div>
             )}

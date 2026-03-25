@@ -6,6 +6,7 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import { seedSampleData } from "@/lib/seed-data";
 import type { Organization, Profile, Skill, Role, TeamInvite } from "@/types/database";
 import {
@@ -167,12 +168,16 @@ export default function SettingsPage() {
   const [newSkillName, setNewSkillName] = useState("");
   const [loadingSkills, setLoadingSkills] = useState(true);
   const [skillError, setSkillError] = useState("");
+  const [deletingSkill, setDeletingSkill] = useState<Skill | null>(null);
+  const [deleteSkillLoading, setDeleteSkillLoading] = useState(false);
 
   // Roles
   const [roles, setRoles] = useState<Role[]>([]);
   const [newRoleName, setNewRoleName] = useState("");
   const [loadingRoles, setLoadingRoles] = useState(true);
   const [roleError, setRoleError] = useState("");
+  const [deletingRole, setDeletingRole] = useState<Role | null>(null);
+  const [deleteRoleLoading, setDeleteRoleLoading] = useState(false);
 
   // Seed data
   const [seeding, setSeeding] = useState(false);
@@ -447,12 +452,19 @@ export default function SettingsPage() {
     fetchSkills();
   };
 
-  const deleteSkill = async (skill: Skill) => {
-    if (!confirm(`Delete "${skill.name}" skill?`)) return;
+  const deleteSkill = (skill: Skill) => {
+    setDeletingSkill(skill);
+  };
+
+  const confirmDeleteSkill = async () => {
+    if (!deletingSkill) return;
+    setDeleteSkillLoading(true);
     const { error } = await supabase
       .from("skills")
       .delete()
-      .eq("id", skill.id);
+      .eq("id", deletingSkill.id);
+    setDeleteSkillLoading(false);
+    setDeletingSkill(null);
     if (error) {
       setSkillError(`Failed to delete: ${error.message}`);
       return;

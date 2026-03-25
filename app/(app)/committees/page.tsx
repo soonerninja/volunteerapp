@@ -305,17 +305,23 @@ export default function CommitteesPage() {
     refreshCounts();
   };
 
-  const handleDelete = async (c: Committee) => {
-    if (!confirm(`Delete "${c.name}" committee?`)) return;
-    if (!orgId || !profile) return;
+  const handleDelete = (c: Committee) => {
+    setDeletingCommittee(c);
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingCommittee || !orgId || !profile) return;
+    setDeleteLoading(true);
 
     const { error: delErr } = await supabase
       .from("committees")
       .delete()
-      .eq("id", c.id);
+      .eq("id", deletingCommittee.id);
 
     if (delErr) {
       setError(`Failed to delete committee: ${delErr.message}`);
+      setDeleteLoading(false);
+      setDeletingCommittee(null);
       return;
     }
 
@@ -324,10 +330,12 @@ export default function CommitteesPage() {
       user_id: profile.id,
       action: "committee.deleted",
       entity_type: "committee",
-      entity_id: c.id,
-      metadata: { name: c.name },
+      entity_id: deletingCommittee.id,
+      metadata: { name: deletingCommittee.name },
     });
-    if (selectedCommittee?.id === c.id) setSelectedCommittee(null);
+    if (selectedCommittee?.id === deletingCommittee.id) setSelectedCommittee(null);
+    setDeleteLoading(false);
+    setDeletingCommittee(null);
     fetchCommittees();
     refreshCounts();
   };
@@ -979,6 +987,17 @@ export default function CommitteesPage() {
             </Card>
           ))}
         </div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {deletingCommittee && (
+        <ConfirmDeleteDialog
+          name={deletingCommittee.name}
+          entityType="committee"
+          onConfirm={confirmDelete}
+          onCancel={() => setDeletingCommittee(null)}
+          loading={deleteLoading}
+        />
       )}
     </div>
   );
