@@ -15,6 +15,7 @@ import {
   Headphones,
   ArrowRight,
   Mail,
+  Clock,
 } from "lucide-react";
 import { LogoLink } from "@/components/ui/logo";
 
@@ -127,7 +128,7 @@ export default function PricingPage() {
                 {isGrowth && (
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
                     <span className="rounded-full bg-purple-600 px-4 py-1 text-xs font-semibold text-white shadow-sm">
-                      Coming Soon
+                      Best Value
                     </span>
                   </div>
                 )}
@@ -153,7 +154,7 @@ export default function PricingPage() {
                     ) : (
                       <div className="flex items-baseline gap-1">
                         <span className="text-4xl font-bold text-gray-900">
-                          ${plan.price / 2}
+                          ${Math.floor(plan.price / 2)}
                         </span>
                         <span className="text-sm text-gray-500">/yr</span>
                         <span className="ml-1 text-lg text-gray-400 line-through">
@@ -168,74 +169,68 @@ export default function PricingPage() {
                 </div>
 
                 {/* CTA */}
-                {isGrowth ? (
-                  <a href="mailto:notify@goodtally.app" className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold transition-colors bg-purple-100 text-purple-700 hover:bg-purple-200 border border-purple-200">Get Notified When Available <ArrowRight className="h-4 w-4" /></a>
-                ) : (
-                  <Link
-                    href="/signup"
-                    className={`flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold transition-colors ${style.btn}`}
-                  >
-                    {plan.price === 0 ? "Get Started Free" : `Start with ${plan.name}`}
-                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                  </Link>
-                )}
+                <Link
+                  href="/signup"
+                  className={`flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold transition-colors ${style.btn}`}
+                >
+                  {plan.price === 0 ? "Get Started Free" : `Start with ${plan.name}`}
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </Link>
 
                 {/* Features */}
-                {isGrowth ? (
-                  <div className="mt-8 space-y-3">
-                    {[
-                      "Volunteer self-service login portal",
-                      "Automated email notifications",
-                      "Custom branding & white-label",
-                      "CSV exports & advanced reports",
-                      "Priority support",
-                      "Unlimited volunteers & events",
-                    ].map((item) => (
-                      <div key={item} className="flex items-center gap-3 text-gray-700">
-                        <Check className="h-4 w-4 shrink-0 text-green-500" aria-hidden="true" />
-                        <span className="text-sm">{item}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="mt-8 space-y-3">
-                    {FEATURES.map(({ key, label, icon: Icon }) => {
-                      const value = plan[key as keyof typeof plan];
-                      const isBoolean = typeof value === "boolean";
-                      const enabled = isBoolean ? value : true;
-                      const displayValue = isBoolean
-                        ? null
-                        : formatLimit(value as number);
+                <div className="mt-8 space-y-3">
+                  {FEATURES.map(({ key, label, icon: Icon }) => {
+                    const value = plan[key as keyof typeof plan];
+                    const isBoolean = typeof value === "boolean";
+                    const enabled = isBoolean ? value : true;
+                    const displayValue = isBoolean
+                      ? null
+                      : formatLimit(value as number);
 
-                      return (
-                        <div
-                          key={key}
-                          className={`flex items-center gap-3 ${
-                            enabled ? "text-gray-700" : "text-gray-400"
-                          }`}
-                        >
-                          {enabled ? (
-                            <Check
-                              className="h-4 w-4 shrink-0 text-green-500"
-                              aria-hidden="true"
-                            />
-                          ) : (
-                            <X
-                              className="h-4 w-4 shrink-0 text-gray-300"
-                              aria-hidden="true"
-                            />
+                    return (
+                      <div
+                        key={key}
+                        className={`flex items-center gap-3 ${
+                          enabled ? "text-gray-700" : "text-gray-400"
+                        }`}
+                      >
+                        {enabled ? (
+                          <Check
+                            className="h-4 w-4 shrink-0 text-green-500"
+                            aria-hidden="true"
+                          />
+                        ) : (
+                          <X
+                            className="h-4 w-4 shrink-0 text-gray-300"
+                            aria-hidden="true"
+                          />
+                        )}
+                        <span className="text-sm">
+                          {displayValue && (
+                            <span className="font-semibold">{displayValue} </span>
                           )}
-                          <span className="text-sm">
-                            {displayValue && (
-                              <span className="font-semibold">{displayValue} </span>
-                            )}
-                            {label}
-                          </span>
+                          {label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                  {isGrowth && (
+                    <div className="mt-4 border-t border-purple-100 pt-4">
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-purple-600">
+                        Coming Soon
+                      </p>
+                      {[
+                        "Volunteer self-service login portal",
+                        "Automated email notifications",
+                      ].map((item) => (
+                        <div key={item} className="flex items-center gap-3 text-purple-600 mt-2">
+                          <Clock className="h-4 w-4 shrink-0" aria-hidden="true" />
+                          <span className="text-sm">{item}</span>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -376,11 +371,7 @@ export default function PricingPage() {
               },
               {
                 q: "Can my volunteers use GoodTally too?",
-                a: "Currently GoodTally is a management tool used by staff and admins to track volunteers — volunteers don't need accounts. Volunteer self-service login portals are coming in the Growth plan.",
-              },
-              {
-                q: "When will the Growth plan be available?",
-                a: "We're actively building Growth features including volunteer login portals, email notifications, and custom branding. Join the notify list to be first to know when it launches.",
+                a: "Currently GoodTally is a management tool used by staff and admins to track volunteers — volunteers don't need accounts. Volunteer self-service login portals are coming soon to the Growth plan.",
               },
               {
                 q: "How is billing handled?",

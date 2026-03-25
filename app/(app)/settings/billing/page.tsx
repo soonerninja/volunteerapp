@@ -5,7 +5,6 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { PLAN_LIMITS, TIER_ORDER, formatLimit, isHigherTier } from "@/lib/plan-limits";
 import type { OrganizationTier } from "@/types/database";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import {
   Check,
@@ -107,10 +106,13 @@ export default function BillingPage() {
             </div>
           </div>
           {plan.tier !== "growth" && canManageBilling && (
-            <Button disabled className="gap-2">
+            <Link
+              href="/pricing"
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
+            >
               <Sparkles className="h-4 w-4" aria-hidden="true" />
-              Upgrade — Coming Soon
-            </Button>
+              Upgrade Plan
+            </Link>
           )}
         </div>
       </Card>
@@ -304,12 +306,12 @@ export default function BillingPage() {
                   </div>
 
                   {isUpgrade ? (
-                    <button
-                      disabled
-                      className={`w-full rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${style.btn}`}
+                    <Link
+                      href="/pricing"
+                      className={`block w-full rounded-lg px-4 py-2.5 text-center text-sm font-semibold transition-colors ${style.btn}`}
                     >
-                      Coming Soon
-                    </button>
+                      Upgrade to {config.name}
+                    </Link>
                   ) : isCurrent ? (
                     <div className="rounded-lg border border-gray-300 bg-gray-100 px-4 py-2.5 text-center text-sm font-medium text-gray-500">
                       Current Plan
