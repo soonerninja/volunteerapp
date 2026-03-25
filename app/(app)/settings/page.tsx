@@ -492,12 +492,19 @@ export default function SettingsPage() {
     fetchRoles();
   };
 
-  const deleteRole = async (role: Role) => {
-    if (!confirm(`Delete "${role.name}" role?`)) return;
+  const deleteRole = (role: Role) => {
+    setDeletingRole(role);
+  };
+
+  const confirmDeleteRole = async () => {
+    if (!deletingRole) return;
+    setDeleteRoleLoading(true);
     const { error } = await supabase
       .from("roles")
       .delete()
-      .eq("id", role.id);
+      .eq("id", deletingRole.id);
+    setDeleteRoleLoading(false);
+    setDeletingRole(null);
     if (error) {
       setRoleError(`Failed to delete: ${error.message}`);
       return;
@@ -1283,6 +1290,28 @@ export default function SettingsPage() {
             )}
           </Card>
         </div>
+      )}
+
+      {/* Skill Delete Confirmation Dialog */}
+      {deletingSkill && (
+        <ConfirmDeleteDialog
+          name={deletingSkill.name}
+          entityType="skill"
+          onConfirm={confirmDeleteSkill}
+          onCancel={() => setDeletingSkill(null)}
+          loading={deleteSkillLoading}
+        />
+      )}
+
+      {/* Role Delete Confirmation Dialog */}
+      {deletingRole && (
+        <ConfirmDeleteDialog
+          name={deletingRole.name}
+          entityType="role"
+          onConfirm={confirmDeleteRole}
+          onCancel={() => setDeletingRole(null)}
+          loading={deleteRoleLoading}
+        />
       )}
     </div>
   );
