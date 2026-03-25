@@ -8,6 +8,7 @@ import { usePlan } from "@/hooks/use-plan";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PlanLimitBadge, UpgradePrompt } from "@/components/ui/upgrade-prompt";
 import { VolunteerSearchSelect } from "@/components/ui/volunteer-search-select";
@@ -102,6 +103,8 @@ export default function CommitteesPage() {
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [deletingCommittee, setDeletingCommittee] = useState<Committee | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const firstInputRef = useRef<HTMLInputElement>(null);
 
   // Members panel
@@ -511,6 +514,7 @@ export default function CommitteesPage() {
       {error && !showForm && !selectedCommittee && (
         <div
           role="alert"
+          aria-live="polite"
           className="rounded-lg bg-red-50 p-3 text-sm text-red-600"
         >
           {error}
@@ -549,6 +553,7 @@ export default function CommitteesPage() {
             {error && !selectedCommittee && (
               <div
                 role="alert"
+                aria-live="polite"
                 className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600"
               >
                 {error}
@@ -632,6 +637,7 @@ export default function CommitteesPage() {
             {error && selectedCommittee && (
               <div
                 role="alert"
+                aria-live="polite"
                 className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600"
               >
                 {error}
