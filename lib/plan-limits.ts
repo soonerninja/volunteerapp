@@ -46,7 +46,7 @@ export const PLAN_LIMITS: Record<OrganizationTier, PlanConfig> = {
   },
   growth: {
     name: "Growth",
-    description: "Coming soon — full power for established organizations. Unlimited everything, volunteer portals, email notifications, and custom branding.",
+    description: "Full power for established organizations. Everything in Starter plus unlimited volunteers, events, committees, custom branding, and priority support.",
     price: 199,
     priceLabel: "$199/year",
     maxVolunteers: Infinity,
