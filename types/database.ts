@@ -7,6 +7,8 @@ export interface Organization {
   tier: OrganizationTier;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
+  stripe_cancel_at_period_end: boolean;
+  stripe_current_period_end: string | null;
   max_volunteers: number;
   description: string | null;
   contact_email: string | null;

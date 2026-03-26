@@ -40,6 +40,10 @@ export async function GET(req: NextRequest) {
       tier,
       stripe_customer_id: session.customer as string,
       stripe_subscription_id: subscription?.id ?? null,
+      stripe_cancel_at_period_end: subscription?.cancel_at_period_end ?? false,
+      stripe_current_period_end: subscription?.cancel_at
+        ? new Date(subscription.cancel_at * 1000).toISOString()
+        : null,
     });
 
     console.log(`[checkout-success] Org ${orgId} upgraded to ${tier}`);

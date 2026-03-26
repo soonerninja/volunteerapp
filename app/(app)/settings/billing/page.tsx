@@ -102,6 +102,26 @@ export default function BillingPage() {
         </div>
       )}
 
+      {/* Pending cancellation banner */}
+      {plan.cancelAtPeriodEnd && plan.currentPeriodEnd && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm font-medium text-amber-800">
+            Your {plan.limits.name} plan is active until{" "}
+            <span className="font-bold">
+              {new Date(plan.currentPeriodEnd).toLocaleDateString("en-US", {
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+              })}
+            </span>
+            . After that, you&apos;ll be downgraded to Free.
+          </p>
+          {canManageBilling && (
+            <ReactivateButton onSuccess={() => plan.refreshCounts()} />
+          )}
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Plan & Billing</h1>
@@ -143,9 +163,9 @@ export default function BillingPage() {
             {plan.isPaid && canManageBilling && (
               <ManageBillingButton />
             )}
-            {plan.tier !== "growth" && canManageBilling && (
+            {plan.tier === "free" && canManageBilling && (
               <CheckoutButton
-                tier={plan.tier === "free" ? "starter" : "growth"}
+                tier="starter"
                 label="Upgrade Plan"
                 className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors disabled:opacity-60"
                 icon={<Sparkles className="h-4 w-4" aria-hidden="true" />}
@@ -369,11 +389,15 @@ export default function BillingPage() {
                   </div>
 
                   {isUpgrade ? (
-                    <CheckoutButton
-                      tier={tier as "starter" | "growth"}
-                      label={`Upgrade to ${config.name}`}
-                      className={`block w-full rounded-lg px-4 py-2.5 text-center text-sm font-semibold transition-colors disabled:opacity-60 ${style.btn}`}
-                    />
+                    plan.isPaid ? (
+                      <ManageBillingButton label={`Upgrade to ${config.name}`} className={`block w-full rounded-lg px-4 py-2.5 text-center text-sm font-semibold transition-colors disabled:opacity-60 ${style.btn}`} />
+                    ) : (
+                      <CheckoutButton
+                        tier={tier as "starter" | "growth"}
+                        label={`Upgrade to ${config.name}`}
+                        className={`block w-full rounded-lg px-4 py-2.5 text-center text-sm font-semibold transition-colors disabled:opacity-60 ${style.btn}`}
+                      />
+                    )
                   ) : isCurrent ? (
                     <div className="rounded-lg border border-gray-300 bg-gray-100 px-4 py-2.5 text-center text-sm font-medium text-gray-500">
                       Current Plan
@@ -442,7 +466,13 @@ function CheckoutButton({
   );
 }
 
-function ManageBillingButton() {
+function ManageBillingButton({
+  label = "Manage Billing",
+  className = "inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-60",
+}: {
+  label?: string;
+  className?: string;
+}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -468,17 +498,50 @@ function ManageBillingButton() {
 
   return (
     <div>
+      <button onClick={handleClick} disabled={loading} className={className}>
+        {loading ? (
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+        ) : label === "Manage Billing" ? (
+          <Settings className="h-4 w-4" aria-hidden="true" />
+        ) : null}
+        {label}
+      </button>
+      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+    </div>
+  );
+}
+
+function ReactivateButton({ onSuccess }: { onSuccess: () => void }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleClick() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/stripe/reactivate", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Something went wrong. Please try again.");
+        setLoading(false);
+        return;
+      }
+      onSuccess();
+    } catch {
+      setError("Network error. Please try again.");
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="shrink-0">
       <button
         onClick={handleClick}
         disabled={loading}
-        className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-60"
+        className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-amber-700 transition-colors disabled:opacity-60"
       >
-        {loading ? (
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-        ) : (
-          <Settings className="h-4 w-4" aria-hidden="true" />
-        )}
-        Manage Billing
+        {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
+        Reactivate
       </button>
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
     </div>

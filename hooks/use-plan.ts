@@ -31,6 +31,12 @@ interface PlanState {
   /** Whether a specific feature is available */
   hasFeature: (feature: "exports" | "auditLog" | "customBranding" | "prioritySupport") => boolean;
 
+  /** Whether the subscription is set to cancel at period end */
+  cancelAtPeriodEnd: boolean;
+
+  /** ISO timestamp of when the current billing period ends */
+  currentPeriodEnd: string | null;
+
   /** Refresh counts from DB */
   refreshCounts: () => Promise<void>;
 }
@@ -45,6 +51,8 @@ const LIMIT_MAP = {
 export function usePlan(): PlanState {
   const { supabase, orgId } = useOrg();
   const [tier, setTier] = useState<OrganizationTier>("free");
+  const [cancelAtPeriodEnd, setCancelAtPeriodEnd] = useState(false);
+  const [currentPeriodEnd, setCurrentPeriodEnd] = useState<string | null>(null);
   const [counts, setCounts] = useState<ResourceCounts>({
     volunteers: 0,
     activeEvents: 0,
@@ -60,7 +68,7 @@ export function usePlan(): PlanState {
     setLoading(true);
 
     const [orgRes, volRes, eventRes, userRes, committeeRes] = await Promise.all([
-      supabase.from("organizations").select("tier").eq("id", orgId).single(),
+      supabase.from("organizations").select("tier, stripe_cancel_at_period_end, stripe_current_period_end").eq("id", orgId).single(),
       supabase.from("volunteers").select("id", { count: "exact", head: true }).eq("org_id", orgId),
       supabase.from("events").select("id", { count: "exact", head: true }).eq("org_id", orgId).in("status", ["upcoming", "active"]),
       supabase.from("profiles").select("id", { count: "exact", head: true }).eq("org_id", orgId),
@@ -69,6 +77,8 @@ export function usePlan(): PlanState {
 
     if (orgRes.data?.tier) {
       setTier(orgRes.data.tier as OrganizationTier);
+      setCancelAtPeriodEnd(orgRes.data.stripe_cancel_at_period_end ?? false);
+      setCurrentPeriodEnd(orgRes.data.stripe_current_period_end ?? null);
     }
 
     setCounts({
@@ -122,8 +132,10 @@ export function usePlan(): PlanState {
       usageLabel,
       isPaid,
       hasFeature,
+      cancelAtPeriodEnd,
+      currentPeriodEnd,
       refreshCounts: fetchTierAndCounts,
     }),
-    [tier, limits, counts, loading, canAdd, usageLabel, isPaid, hasFeature, fetchTierAndCounts]
+    [tier, limits, counts, loading, canAdd, usageLabel, isPaid, hasFeature, cancelAtPeriodEnd, currentPeriodEnd, fetchTierAndCounts]
   );
 }

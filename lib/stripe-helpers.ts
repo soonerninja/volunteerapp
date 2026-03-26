@@ -30,6 +30,8 @@ export async function updateOrgSubscription(
     tier: OrganizationTier;
     stripe_customer_id?: string;
     stripe_subscription_id?: string | null;
+    stripe_cancel_at_period_end?: boolean;
+    stripe_current_period_end?: string | null;
   }
 ) {
   const supabase = createServiceClient();
