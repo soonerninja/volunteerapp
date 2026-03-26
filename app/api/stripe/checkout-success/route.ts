@@ -41,8 +41,8 @@ export async function GET(req: NextRequest) {
       stripe_customer_id: session.customer as string,
       stripe_subscription_id: subscription?.id ?? null,
       stripe_cancel_at_period_end: subscription?.cancel_at_period_end ?? false,
-      stripe_current_period_end: subscription?.cancel_at
-        ? new Date(subscription.cancel_at * 1000).toISOString()
+      stripe_current_period_end: (subscription as (typeof subscription & { current_period_end?: number }))?.current_period_end
+        ? new Date(((subscription as (typeof subscription & { current_period_end?: number })).current_period_end!) * 1000).toISOString()
         : null,
     });
 

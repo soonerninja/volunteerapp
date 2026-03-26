@@ -88,8 +88,8 @@ export async function POST(req: NextRequest) {
             tier,
             stripe_subscription_id: subscription.id,
             stripe_cancel_at_period_end: subscription.cancel_at_period_end ?? false,
-            stripe_current_period_end: subscription.cancel_at
-              ? new Date(subscription.cancel_at * 1000).toISOString()
+            stripe_current_period_end: (subscription as Stripe.Subscription & { current_period_end?: number }).current_period_end
+              ? new Date(((subscription as Stripe.Subscription & { current_period_end?: number }).current_period_end!) * 1000).toISOString()
               : null,
           });
           console.log(`[Stripe webhook] Org ${org.id} subscription updated to ${tier}`);

@@ -103,18 +103,24 @@ export default function BillingPage() {
       )}
 
       {/* Pending cancellation banner */}
-      {plan.cancelAtPeriodEnd && plan.currentPeriodEnd && (
+      {plan.cancelAtPeriodEnd && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm font-medium text-amber-800">
-            Your {plan.limits.name} plan is active until{" "}
-            <span className="font-bold">
-              {new Date(plan.currentPeriodEnd).toLocaleDateString("en-US", {
-                month: "long",
-                day: "numeric",
-                year: "numeric",
-              })}
-            </span>
-            . After that, you&apos;ll be downgraded to Free.
+            {plan.currentPeriodEnd ? (
+              <>
+                Your {plan.limits.name} plan is active until{" "}
+                <span className="font-bold">
+                  {new Date(plan.currentPeriodEnd).toLocaleDateString("en-US", {
+                    month: "long",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </span>
+                . After that, you&apos;ll be downgraded to Free.
+              </>
+            ) : (
+              <>Your {plan.limits.name} plan is set to cancel and will not renew. You&apos;ll be downgraded to Free at the end of your billing period.</>
+            )}
           </p>
           {canManageBilling && (
             <ReactivateButton onSuccess={() => plan.refreshCounts()} />
@@ -159,7 +165,10 @@ export default function BillingPage() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            {plan.tier === "starter" && canManageBilling && (
+              <UpgradeButton />
+            )}
             {plan.isPaid && canManageBilling && (
               <ManageBillingButton />
             )}
@@ -390,7 +399,7 @@ export default function BillingPage() {
 
                   {isUpgrade ? (
                     plan.isPaid ? (
-                      <ManageBillingButton label={`Upgrade to ${config.name}`} className={`block w-full rounded-lg px-4 py-2.5 text-center text-sm font-semibold transition-colors disabled:opacity-60 ${style.btn}`} />
+                      <UpgradeButton className={`block w-full rounded-lg px-4 py-2.5 text-center text-sm font-semibold transition-colors disabled:opacity-60 ${style.btn}`} />
                     ) : (
                       <CheckoutButton
                         tier={tier as "starter" | "growth"}
@@ -460,6 +469,47 @@ function CheckoutButton({
           icon
         )}
         {label}
+      </button>
+      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+    </div>
+  );
+}
+
+function UpgradeButton({ className }: { className?: string }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleClick() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/stripe/upgrade", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Something went wrong. Please try again.");
+        setLoading(false);
+        return;
+      }
+      window.location.href = "/settings/billing?success=1";
+    } catch {
+      setError("Network error. Please try again.");
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div>
+      <button
+        onClick={handleClick}
+        disabled={loading}
+        className={className ?? "inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors disabled:opacity-60"}
+      >
+        {loading ? (
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+        ) : (
+          <Sparkles className="h-4 w-4" aria-hidden="true" />
+        )}
+        Upgrade to Growth
       </button>
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
     </div>
