@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     mode: "subscription" as const,
     line_items: [{ price: priceId, quantity: 1 }],
     discounts: [{ coupon: process.env.STRIPE_COUPON_EARLY_ADOPTER! }],
-    success_url: `${siteUrl}/settings/billing?success=1`,
+    success_url: `${siteUrl}/api/stripe/checkout-success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${siteUrl}/settings/billing?canceled=1`,
     metadata: { org_id: profile.org_id },
     subscription_data: {
