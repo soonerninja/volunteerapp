@@ -6,6 +6,7 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import { seedSampleData } from "@/lib/seed-data";
 import type { Organization, Profile, Skill, Role, TeamInvite } from "@/types/database";
 import {
@@ -59,16 +60,66 @@ const MONTHS = [
 ];
 
 const COMMON_TIMEZONES = [
-  "America/New_York",
-  "America/Chicago",
-  "America/Denver",
-  "America/Los_Angeles",
-  "America/Anchorage",
-  "Pacific/Honolulu",
-  "America/Phoenix",
-  "America/Indiana/Indianapolis",
-  "America/Detroit",
-  "America/Boise",
+  // US timezones
+  { value: "America/New_York", label: "Eastern Time (US & Canada)" },
+  { value: "America/Indiana/Indianapolis", label: "Indiana (East)" },
+  { value: "America/Detroit", label: "Eastern Time - Michigan" },
+  { value: "America/Chicago", label: "Central Time (US & Canada)" },
+  { value: "America/Indiana/Knox", label: "Indiana (Northwest)" },
+  { value: "America/Menominee", label: "Central Time - Michigan (Upper Peninsula)" },
+  { value: "America/Denver", label: "Mountain Time (US & Canada)" },
+  { value: "America/Boise", label: "Mountain Time - Idaho" },
+  { value: "America/Phoenix", label: "Arizona (no DST)" },
+  { value: "America/Los_Angeles", label: "Pacific Time (US & Canada)" },
+  { value: "America/Anchorage", label: "Alaska" },
+  { value: "America/Juneau", label: "Alaska - Juneau" },
+  { value: "Pacific/Honolulu", label: "Hawaii" },
+  // Canada
+  { value: "America/Halifax", label: "Atlantic Time (Canada)" },
+  { value: "America/St_Johns", label: "Newfoundland" },
+  { value: "America/Toronto", label: "Eastern Time - Toronto" },
+  { value: "America/Winnipeg", label: "Central Time - Winnipeg" },
+  { value: "America/Edmonton", label: "Mountain Time - Edmonton" },
+  { value: "America/Vancouver", label: "Pacific Time - Vancouver" },
+  // Latin America
+  { value: "America/Mexico_City", label: "Mexico City" },
+  { value: "America/Bogota", label: "Bogota, Lima, Quito" },
+  { value: "America/Caracas", label: "Caracas" },
+  { value: "America/Santiago", label: "Santiago" },
+  { value: "America/Sao_Paulo", label: "Brasilia" },
+  { value: "America/Argentina/Buenos_Aires", label: "Buenos Aires" },
+  // Europe
+  { value: "Europe/London", label: "London, Edinburgh, Dublin" },
+  { value: "Europe/Lisbon", label: "Lisbon" },
+  { value: "Europe/Paris", label: "Paris, Madrid, Brussels" },
+  { value: "Europe/Berlin", label: "Berlin, Amsterdam, Vienna" },
+  { value: "Europe/Rome", label: "Rome, Prague, Warsaw" },
+  { value: "Europe/Athens", label: "Athens, Bucharest" },
+  { value: "Europe/Helsinki", label: "Helsinki, Kyiv, Riga" },
+  { value: "Europe/Istanbul", label: "Istanbul" },
+  { value: "Europe/Moscow", label: "Moscow, St. Petersburg" },
+  // Africa
+  { value: "Africa/Cairo", label: "Cairo" },
+  { value: "Africa/Johannesburg", label: "Johannesburg, Harare" },
+  { value: "Africa/Lagos", label: "West Central Africa" },
+  { value: "Africa/Nairobi", label: "Nairobi" },
+  // Asia
+  { value: "Asia/Dubai", label: "Abu Dhabi, Muscat" },
+  { value: "Asia/Karachi", label: "Karachi, Islamabad" },
+  { value: "Asia/Kolkata", label: "Mumbai, Kolkata, New Delhi" },
+  { value: "Asia/Dhaka", label: "Dhaka" },
+  { value: "Asia/Bangkok", label: "Bangkok, Hanoi, Jakarta" },
+  { value: "Asia/Singapore", label: "Singapore, Kuala Lumpur" },
+  { value: "Asia/Shanghai", label: "Beijing, Shanghai, Hong Kong" },
+  { value: "Asia/Tokyo", label: "Tokyo, Osaka, Sapporo" },
+  { value: "Asia/Seoul", label: "Seoul" },
+  // Pacific
+  { value: "Australia/Perth", label: "Perth" },
+  { value: "Australia/Adelaide", label: "Adelaide" },
+  { value: "Australia/Sydney", label: "Sydney, Melbourne, Brisbane" },
+  { value: "Pacific/Auckland", label: "Auckland, Wellington" },
+  { value: "Pacific/Fiji", label: "Fiji" },
+  { value: "Pacific/Guam", label: "Guam, Port Moresby" },
 ];
 
 export default function SettingsPage() {
@@ -117,12 +168,16 @@ export default function SettingsPage() {
   const [newSkillName, setNewSkillName] = useState("");
   const [loadingSkills, setLoadingSkills] = useState(true);
   const [skillError, setSkillError] = useState("");
+  const [deletingSkill, setDeletingSkill] = useState<Skill | null>(null);
+  const [deleteSkillLoading, setDeleteSkillLoading] = useState(false);
 
   // Roles
   const [roles, setRoles] = useState<Role[]>([]);
   const [newRoleName, setNewRoleName] = useState("");
   const [loadingRoles, setLoadingRoles] = useState(true);
   const [roleError, setRoleError] = useState("");
+  const [deletingRole, setDeletingRole] = useState<Role | null>(null);
+  const [deleteRoleLoading, setDeleteRoleLoading] = useState(false);
 
   // Seed data
   const [seeding, setSeeding] = useState(false);
@@ -397,12 +452,19 @@ export default function SettingsPage() {
     fetchSkills();
   };
 
-  const deleteSkill = async (skill: Skill) => {
-    if (!confirm(`Delete "${skill.name}" skill?`)) return;
+  const deleteSkill = (skill: Skill) => {
+    setDeletingSkill(skill);
+  };
+
+  const confirmDeleteSkill = async () => {
+    if (!deletingSkill) return;
+    setDeleteSkillLoading(true);
     const { error } = await supabase
       .from("skills")
       .delete()
-      .eq("id", skill.id);
+      .eq("id", deletingSkill.id);
+    setDeleteSkillLoading(false);
+    setDeletingSkill(null);
     if (error) {
       setSkillError(`Failed to delete: ${error.message}`);
       return;
@@ -430,12 +492,19 @@ export default function SettingsPage() {
     fetchRoles();
   };
 
-  const deleteRole = async (role: Role) => {
-    if (!confirm(`Delete "${role.name}" role?`)) return;
+  const deleteRole = (role: Role) => {
+    setDeletingRole(role);
+  };
+
+  const confirmDeleteRole = async () => {
+    if (!deletingRole) return;
+    setDeleteRoleLoading(true);
     const { error } = await supabase
       .from("roles")
       .delete()
-      .eq("id", role.id);
+      .eq("id", deletingRole.id);
+    setDeleteRoleLoading(false);
+    setDeletingRole(null);
     if (error) {
       setRoleError(`Failed to delete: ${error.message}`);
       return;
@@ -658,8 +727,8 @@ export default function SettingsPage() {
                   className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   {COMMON_TIMEZONES.map((tz) => (
-                    <option key={tz} value={tz}>
-                      {tz.replace(/_/g, " ")}
+                    <option key={tz.value} value={tz.value}>
+                      {tz.label}
                     </option>
                   ))}
                 </select>
@@ -962,7 +1031,7 @@ export default function SettingsPage() {
                 </div>
 
                 {inviteError && (
-                  <p role="alert" className="mt-2 text-sm text-red-600">
+                  <p role="alert" aria-live="polite" className="mt-2 text-sm text-red-600">
                     {inviteError}
                   </p>
                 )}
@@ -1095,7 +1164,7 @@ export default function SettingsPage() {
               </Button>
             </div>
             {skillError && (
-              <p role="alert" className="mt-2 text-sm text-red-600">
+              <p role="alert" aria-live="polite" className="mt-2 text-sm text-red-600">
                 {skillError}
               </p>
             )}
@@ -1177,7 +1246,7 @@ export default function SettingsPage() {
               </Button>
             </div>
             {roleError && (
-              <p role="alert" className="mt-2 text-sm text-red-600">
+              <p role="alert" aria-live="polite" className="mt-2 text-sm text-red-600">
                 {roleError}
               </p>
             )}
@@ -1221,6 +1290,28 @@ export default function SettingsPage() {
             )}
           </Card>
         </div>
+      )}
+
+      {/* Skill Delete Confirmation Dialog */}
+      {deletingSkill && (
+        <ConfirmDeleteDialog
+          name={deletingSkill.name}
+          entityType="skill"
+          onConfirm={confirmDeleteSkill}
+          onCancel={() => setDeletingSkill(null)}
+          loading={deleteSkillLoading}
+        />
+      )}
+
+      {/* Role Delete Confirmation Dialog */}
+      {deletingRole && (
+        <ConfirmDeleteDialog
+          name={deletingRole.name}
+          entityType="role"
+          onConfirm={confirmDeleteRole}
+          onCancel={() => setDeletingRole(null)}
+          loading={deleteRoleLoading}
+        />
       )}
     </div>
   );

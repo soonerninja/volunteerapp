@@ -1,5 +1,8 @@
 "use client";
 
+import React, { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
+import { RetentionModal } from "@/components/ui/retention-modal";
 import { usePlan } from "@/hooks/use-plan";
 import { usePermissions } from "@/hooks/use-permissions";
 import { PLAN_LIMITS, TIER_ORDER, formatLimit, isHigherTier } from "@/lib/plan-limits";
@@ -18,8 +21,9 @@ import {
   ScrollText,
   Paintbrush,
   Headphones,
-  ArrowRight,
   Sparkles,
+  Settings,
+  Loader2,
 } from "lucide-react";
 
 const TIER_CARD_STYLES: Record<OrganizationTier, { accent: string; badge: string; btn: string }> = {
@@ -57,6 +61,20 @@ const FEATURE_ITEMS = [
 export default function BillingPage() {
   const plan = usePlan();
   const { canManageBilling } = usePermissions();
+  const searchParams = useSearchParams();
+  const [notice, setNotice] = useState<"success" | "canceled" | null>(null);
+  const [showRetentionModal, setShowRetentionModal] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("success") === "1") setNotice("success");
+    else if (searchParams.get("canceled") === "1") setNotice("canceled");
+  }, [searchParams]);
+
+  const openPortal = useCallback(async () => {
+    const res = await fetch("/api/stripe/portal", { method: "POST" });
+    const data = await res.json();
+    if (data.url) window.location.href = data.url;
+  }, []);
 
   if (plan.loading) {
     return (
@@ -68,6 +86,22 @@ export default function BillingPage() {
 
   return (
     <div className="space-y-6">
+      {/* Success / canceled notices */}
+      {notice === "success" && (
+        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3">
+          <p className="text-sm font-medium text-green-800">
+            Your subscription is active! Your plan has been upgraded.
+          </p>
+        </div>
+      )}
+      {notice === "canceled" && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-sm font-medium text-amber-800">
+            Checkout was canceled. No changes were made.
+          </p>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Plan & Billing</h1>
@@ -105,17 +139,46 @@ export default function BillingPage() {
               </p>
             </div>
           </div>
-          {plan.tier !== "growth" && canManageBilling && (
-            <Link
-              href="/pricing"
-              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
-            >
-              <Sparkles className="h-4 w-4" aria-hidden="true" />
-              Upgrade Plan
-            </Link>
-          )}
+          <div className="flex items-center gap-3">
+            {plan.isPaid && canManageBilling && (
+              <ManageBillingButton />
+            )}
+            {plan.tier !== "growth" && canManageBilling && (
+              <CheckoutButton
+                tier={plan.tier === "free" ? "starter" : "growth"}
+                label="Upgrade Plan"
+                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors disabled:opacity-60"
+                icon={<Sparkles className="h-4 w-4" aria-hidden="true" />}
+              />
+            )}
+          </div>
         </div>
       </Card>
+
+      {/* Subtle downgrade/cancel link — only for paid subscribers who can manage billing */}
+      {plan.isPaid && canManageBilling && (
+        <div className="text-right">
+          <button
+            onClick={() => setShowRetentionModal(true)}
+            className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            Change or cancel plan
+          </button>
+        </div>
+      )}
+
+      {/* Retention modal */}
+      {showRetentionModal && (
+        <RetentionModal
+          currentPlan={plan.limits.name}
+          onAcceptDiscount={() => setShowRetentionModal(false)}
+          onContinueToPortal={() => {
+            setShowRetentionModal(false);
+            openPortal();
+          }}
+          onClose={() => setShowRetentionModal(false)}
+        />
+      )}
 
       {/* Usage */}
       <Card>
@@ -306,12 +369,11 @@ export default function BillingPage() {
                   </div>
 
                   {isUpgrade ? (
-                    <Link
-                      href="/pricing"
-                      className={`block w-full rounded-lg px-4 py-2.5 text-center text-sm font-semibold transition-colors ${style.btn}`}
-                    >
-                      Upgrade to {config.name}
-                    </Link>
+                    <CheckoutButton
+                      tier={tier as "starter" | "growth"}
+                      label={`Upgrade to ${config.name}`}
+                      className={`block w-full rounded-lg px-4 py-2.5 text-center text-sm font-semibold transition-colors disabled:opacity-60 ${style.btn}`}
+                    />
                   ) : isCurrent ? (
                     <div className="rounded-lg border border-gray-300 bg-gray-100 px-4 py-2.5 text-center text-sm font-medium text-gray-500">
                       Current Plan
@@ -323,6 +385,102 @@ export default function BillingPage() {
           </div>
         </Card>
       )}
+    </div>
+  );
+}
+
+function CheckoutButton({
+  tier,
+  label,
+  className,
+  icon,
+}: {
+  tier: "starter" | "growth";
+  label: string;
+  className: string;
+  icon?: React.ReactNode;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleClick() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Something went wrong. Please try again.");
+        setLoading(false);
+        return;
+      }
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch {
+      setError("Network error. Please try again.");
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div>
+      <button onClick={handleClick} disabled={loading} className={className}>
+        {loading ? (
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+        ) : (
+          icon
+        )}
+        {label}
+      </button>
+      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+    </div>
+  );
+}
+
+function ManageBillingButton() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleClick() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/stripe/portal", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Something went wrong. Please try again.");
+        setLoading(false);
+        return;
+      }
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch {
+      setError("Network error. Please try again.");
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div>
+      <button
+        onClick={handleClick}
+        disabled={loading}
+        className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-60"
+      >
+        {loading ? (
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+        ) : (
+          <Settings className="h-4 w-4" aria-hidden="true" />
+        )}
+        Manage Billing
+      </button>
+      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
     </div>
   );
 }

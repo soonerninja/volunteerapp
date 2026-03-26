@@ -8,6 +8,7 @@ import { usePlan } from "@/hooks/use-plan";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PlanLimitBadge, UpgradePrompt } from "@/components/ui/upgrade-prompt";
 import { VolunteerSearchSelect } from "@/components/ui/volunteer-search-select";
@@ -102,6 +103,8 @@ export default function CommitteesPage() {
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [deletingCommittee, setDeletingCommittee] = useState<Committee | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const firstInputRef = useRef<HTMLInputElement>(null);
 
   // Members panel
@@ -302,17 +305,23 @@ export default function CommitteesPage() {
     refreshCounts();
   };
 
-  const handleDelete = async (c: Committee) => {
-    if (!confirm(`Delete "${c.name}" committee?`)) return;
-    if (!orgId || !profile) return;
+  const handleDelete = (c: Committee) => {
+    setDeletingCommittee(c);
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingCommittee || !orgId || !profile) return;
+    setDeleteLoading(true);
 
     const { error: delErr } = await supabase
       .from("committees")
       .delete()
-      .eq("id", c.id);
+      .eq("id", deletingCommittee.id);
 
     if (delErr) {
       setError(`Failed to delete committee: ${delErr.message}`);
+      setDeleteLoading(false);
+      setDeletingCommittee(null);
       return;
     }
 
@@ -321,10 +330,12 @@ export default function CommitteesPage() {
       user_id: profile.id,
       action: "committee.deleted",
       entity_type: "committee",
-      entity_id: c.id,
-      metadata: { name: c.name },
+      entity_id: deletingCommittee.id,
+      metadata: { name: deletingCommittee.name },
     });
-    if (selectedCommittee?.id === c.id) setSelectedCommittee(null);
+    if (selectedCommittee?.id === deletingCommittee.id) setSelectedCommittee(null);
+    setDeleteLoading(false);
+    setDeletingCommittee(null);
     fetchCommittees();
     refreshCounts();
   };
@@ -511,6 +522,7 @@ export default function CommitteesPage() {
       {error && !showForm && !selectedCommittee && (
         <div
           role="alert"
+          aria-live="polite"
           className="rounded-lg bg-red-50 p-3 text-sm text-red-600"
         >
           {error}
@@ -549,6 +561,7 @@ export default function CommitteesPage() {
             {error && !selectedCommittee && (
               <div
                 role="alert"
+                aria-live="polite"
                 className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600"
               >
                 {error}
@@ -632,6 +645,7 @@ export default function CommitteesPage() {
             {error && selectedCommittee && (
               <div
                 role="alert"
+                aria-live="polite"
                 className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600"
               >
                 {error}
@@ -973,6 +987,17 @@ export default function CommitteesPage() {
             </Card>
           ))}
         </div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {deletingCommittee && (
+        <ConfirmDeleteDialog
+          name={deletingCommittee.name}
+          entityType="committee"
+          onConfirm={confirmDelete}
+          onCancel={() => setDeletingCommittee(null)}
+          loading={deleteLoading}
+        />
       )}
     </div>
   );

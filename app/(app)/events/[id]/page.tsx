@@ -7,6 +7,7 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import { VolunteerSearchSelect } from "@/components/ui/volunteer-search-select";
 import { formatDate } from "@/utils/format";
 import type { Event, Volunteer } from "@/types/database";
@@ -44,6 +45,8 @@ export default function EventDetailPage() {
   const [assignRole, setAssignRole] = useState("");
   const [stagedVolunteer, setStagedVolunteer] = useState<Volunteer | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const [form, setForm] = useState({
     title: "",
@@ -184,9 +187,13 @@ export default function EventDetailPage() {
     setTimeout(() => setSuccess(""), 3000);
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDelete = async () => {
     if (!event || !orgId || !profile) return;
-    if (!confirm(`Delete "${event.title}"? This cannot be undone.`)) return;
+    setDeleteLoading(true);
 
     const { error: delErr } = await supabase
       .from("events")
@@ -195,6 +202,8 @@ export default function EventDetailPage() {
 
     if (delErr) {
       setError(`Failed to delete event: ${delErr.message}`);
+      setDeleteLoading(false);
+      setShowDeleteDialog(false);
       return;
     }
 
@@ -206,6 +215,8 @@ export default function EventDetailPage() {
       entity_id: event.id,
       metadata: { title: event.title },
     });
+    setDeleteLoading(false);
+    setShowDeleteDialog(false);
     router.push("/events");
   };
 
@@ -328,7 +339,7 @@ export default function EventDetailPage() {
             </h2>
 
             {error && (
-              <div role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
+              <div role="alert" aria-live="polite" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
                 {error}
               </div>
             )}
@@ -632,6 +643,16 @@ export default function EventDetailPage() {
           </Card>
         </div>
       </div>
+
+      {showDeleteDialog && event && (
+        <ConfirmDeleteDialog
+          name={event.title}
+          entityType="event"
+          onConfirm={confirmDelete}
+          onCancel={() => setShowDeleteDialog(false)}
+          loading={deleteLoading}
+        />
+      )}
     </div>
   );
 }

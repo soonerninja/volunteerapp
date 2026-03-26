@@ -172,6 +172,7 @@ export default function SignupPage() {
             {error && (
               <div
                 role="alert"
+                aria-live="polite"
                 className="rounded-lg bg-red-50 p-3 text-sm text-red-700"
               >
                 {error}
