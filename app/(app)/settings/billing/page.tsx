@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
+import { RetentionModal } from "@/components/ui/retention-modal";
 import { usePlan } from "@/hooks/use-plan";
 import { usePermissions } from "@/hooks/use-permissions";
 import { PLAN_LIMITS, TIER_ORDER, formatLimit, isHigherTier } from "@/lib/plan-limits";
@@ -62,11 +63,18 @@ export default function BillingPage() {
   const { canManageBilling } = usePermissions();
   const searchParams = useSearchParams();
   const [notice, setNotice] = useState<"success" | "canceled" | null>(null);
+  const [showRetentionModal, setShowRetentionModal] = useState(false);
 
   useEffect(() => {
     if (searchParams.get("success") === "1") setNotice("success");
     else if (searchParams.get("canceled") === "1") setNotice("canceled");
   }, [searchParams]);
+
+  const openPortal = useCallback(async () => {
+    const res = await fetch("/api/stripe/portal", { method: "POST" });
+    const data = await res.json();
+    if (data.url) window.location.href = data.url;
+  }, []);
 
   if (plan.loading) {
     return (
@@ -146,6 +154,31 @@ export default function BillingPage() {
           </div>
         </div>
       </Card>
+
+      {/* Subtle downgrade/cancel link — only for paid subscribers who can manage billing */}
+      {plan.isPaid && canManageBilling && (
+        <div className="text-right">
+          <button
+            onClick={() => setShowRetentionModal(true)}
+            className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            Change or cancel plan
+          </button>
+        </div>
+      )}
+
+      {/* Retention modal */}
+      {showRetentionModal && (
+        <RetentionModal
+          currentPlan={plan.limits.name}
+          onAcceptDiscount={() => setShowRetentionModal(false)}
+          onContinueToPortal={() => {
+            setShowRetentionModal(false);
+            openPortal();
+          }}
+          onClose={() => setShowRetentionModal(false)}
+        />
+      )}
 
       {/* Usage */}
       <Card>

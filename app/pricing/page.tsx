@@ -13,11 +13,13 @@ import {
   ScrollText,
   Paintbrush,
   Headphones,
-  ArrowRight,
   Mail,
   Clock,
+  ArrowRight,
 } from "lucide-react";
 import { LogoLink } from "@/components/ui/logo";
+import { PricingCtaButton } from "@/components/ui/pricing-cta-button";
+import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "Pricing – GoodTally",
@@ -60,7 +62,10 @@ const FEATURES = [
   { key: "prioritySupport", label: "Priority support", icon: Headphones },
 ] as const;
 
-export default function PricingPage() {
+export default async function PricingPage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const isLoggedIn = !!user;
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       {/* Header */}
@@ -169,13 +174,12 @@ export default function PricingPage() {
                 </div>
 
                 {/* CTA */}
-                <Link
-                  href="/signup"
+                <PricingCtaButton
+                  tier={tier}
+                  label={plan.price === 0 ? "Get Started Free" : `Start with ${plan.name}`}
                   className={`flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold transition-colors ${style.btn}`}
-                >
-                  {plan.price === 0 ? "Get Started Free" : `Start with ${plan.name}`}
-                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                </Link>
+                  isLoggedIn={isLoggedIn}
+                />
 
                 {/* Features */}
                 <div className="mt-8 space-y-3">
