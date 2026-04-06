@@ -81,7 +81,7 @@ export default async function BlogPostPage({ params }: PageProps) {
         />
 
         <div className="mt-12 rounded-xl border border-gray-200 bg-gray-50 p-5 text-sm text-gray-600">
-          Written by <span className="font-semibold text-gray-900">{post.author}</span>, Founder of GoodTally.
+          Written by <span className="font-semibold text-gray-900">the GoodTally Team</span>.
         </div>
       </article>
     </MarketingShell>

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isSuperAdmin } from "@/lib/super-admin";
 import { PLAN_LIMITS } from "@/lib/plan-limits";
 import { Card } from "@/components/ui/card";
+import { TierControl } from "./tier-control";
 import type { OrganizationTier } from "@/types/database";
 
 export const metadata = {
@@ -214,9 +215,12 @@ export default async function SuperAdminPage() {
                   </Td>
                   <Td>{r.admin_email ?? r.contact_email ?? <span className="text-gray-400">—</span>}</Td>
                   <Td>
-                    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${tierBadge(r.tier)}`}>
-                      {r.tier}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${tierBadge(r.tier)}`}>
+                        {r.tier}
+                      </span>
+                      <TierControl orgId={r.id} currentTier={r.tier} />
+                    </div>
                   </Td>
                   <Td className="text-gray-600">{formatDate(r.created_at)}</Td>
                   <Td className={staleLogin ? "text-rose-600" : "text-gray-600"}>

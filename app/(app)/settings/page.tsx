@@ -20,6 +20,7 @@ import {
   Mail,
   Clock,
   Trash2,
+  Send,
   Database,
   AlertTriangle,
   MapPin,
@@ -421,6 +422,26 @@ export default function SettingsPage() {
     fetchInvites();
     setTimeout(() => setInviteSuccess(""), 5000);
     inviteEmailRef.current?.focus();
+  };
+
+  const resendInvite = async (invite: TeamInvite) => {
+    setInviteError("");
+    try {
+      const res = await fetch("/api/invites/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: invite.email }),
+      });
+      if (!res.ok) {
+        const { error: sendErr } = await res.json().catch(() => ({ error: "" }));
+        setInviteError(sendErr || "Failed to resend invite.");
+        return;
+      }
+      setInviteSuccess(`Invite resent to ${invite.email}.`);
+      setTimeout(() => setInviteSuccess(""), 4000);
+    } catch {
+      setInviteError("Failed to resend invite.");
+    }
   };
 
   const revokeInvite = async (invite: TeamInvite) => {
@@ -1086,13 +1107,23 @@ export default function SettingsPage() {
                         </p>
                       </div>
                     </div>
-                    <button
-                      onClick={() => revokeInvite(invite)}
-                      className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"
-                      aria-label={`Revoke invite for ${invite.email}`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => resendInvite(invite)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200"
+                        aria-label={`Resend invite for ${invite.email}`}
+                      >
+                        <Send className="h-3.5 w-3.5" />
+                        Resend
+                      </button>
+                      <button
+                        onClick={() => revokeInvite(invite)}
+                        className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                        aria-label={`Revoke invite for ${invite.email}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

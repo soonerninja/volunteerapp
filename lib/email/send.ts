@@ -6,7 +6,7 @@
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
-export const EMAIL_FROM = "GoodTally <hello@goodtally.app>";
+export const EMAIL_FROM = "GoodTally <noreply@goodtally.app>";
 export const EMAIL_REPLY_TO = "hello@goodtally.app";
 
 export type EmailCategory =
