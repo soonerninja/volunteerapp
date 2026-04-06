@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isSuperAdmin } from "@/lib/super-admin";
 import { PLAN_LIMITS } from "@/lib/plan-limits";
+import { Card } from "@/components/ui/card";
 import type { OrganizationTier } from "@/types/database";
 
 export const metadata = {
@@ -43,10 +44,17 @@ export default async function SuperAdminPage() {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceUrl || !serviceKey) {
     return (
-      <main className="p-10">
-        <h1 className="text-2xl font-bold">Super Admin</h1>
-        <p className="mt-4 text-rose-600">SUPABASE_SERVICE_ROLE_KEY not configured.</p>
-      </main>
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-gray-900">Super Admin</h1>
+          <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-rose-700">
+            Super Admin
+          </span>
+        </div>
+        <Card>
+          <p className="text-rose-600">SUPABASE_SERVICE_ROLE_KEY not configured.</p>
+        </Card>
+      </div>
     );
   }
   const svc = createServiceClient(serviceUrl, serviceKey, { auth: { persistSession: false } });
@@ -137,106 +145,114 @@ export default async function SuperAdminPage() {
 
   const conversionRate = totals.all > 0 ? ((totals.paid / totals.all) * 100).toFixed(1) : "0.0";
 
+  const stats: Array<{ label: string; value: string | number }> = [
+    { label: "Total orgs", value: totals.all },
+    { label: "Paid orgs", value: `${totals.paid} (${conversionRate}%)` },
+    { label: "New (7d)", value: totals.new7d },
+    { label: "New (30d)", value: totals.new30d },
+    { label: "Active (30d)", value: totals.active30d },
+    { label: "Free", value: totals.free },
+    { label: "Starter", value: totals.starter },
+    { label: "Growth", value: totals.growth },
+  ];
+
   return (
-    <main className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-baseline justify-between mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Super Admin</h1>
-          <div className="text-sm text-gray-500">Internal view — not visible to customers</div>
+    <div className="space-y-6">
+      <div>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-gray-900">Super Admin</h1>
+          <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-rose-700">
+            Super Admin
+          </span>
         </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-          <Stat label="Total orgs" value={totals.all} />
-          <Stat label="Paid orgs" value={`${totals.paid} (${conversionRate}%)`} />
-          <Stat label="New (7d)" value={totals.new7d} />
-          <Stat label="New (30d)" value={totals.new30d} />
-          <Stat label="Active (30d)" value={totals.active30d} />
-          <Stat label="Free" value={totals.free} />
-          <Stat label="Starter" value={totals.starter} />
-          <Stat label="Growth" value={totals.growth} />
-        </div>
-
-        <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="bg-gray-50 text-gray-700">
-              <tr>
-                <Th>Organization</Th>
-                <Th>Admin</Th>
-                <Th>Plan</Th>
-                <Th>Created</Th>
-                <Th>Last login</Th>
-                <Th className="text-right">Vols</Th>
-                <Th className="text-right">Events</Th>
-                <Th className="text-right">Hours</Th>
-                <Th>Usage</Th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {rows.map((r) => {
-                const limits = PLAN_LIMITS[r.tier];
-                const usagePct = Math.min(
-                  100,
-                  Math.round((r.volunteer_count / (limits.maxVolunteers === Infinity ? 1000 : limits.maxVolunteers)) * 100)
-                );
-                const lastLogin = r.last_sign_in_at ? new Date(r.last_sign_in_at) : null;
-                const staleLogin = !lastLogin || now - lastLogin.getTime() > 30 * DAY;
-                return (
-                  <tr key={r.id}>
-                    <Td>
-                      <div className="font-medium text-gray-900">{r.name}</div>
-                      <div className="text-xs text-gray-500">{r.id.slice(0, 8)}</div>
-                    </Td>
-                    <Td>{r.admin_email ?? r.contact_email ?? <span className="text-gray-400">—</span>}</Td>
-                    <Td>
-                      <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${tierBadge(r.tier)}`}>
-                        {r.tier}
-                      </span>
-                    </Td>
-                    <Td className="text-gray-600">{formatDate(r.created_at)}</Td>
-                    <Td className={staleLogin ? "text-rose-600" : "text-gray-600"}>
-                      {lastLogin ? formatDate(lastLogin.toISOString()) : "never"}
-                    </Td>
-                    <Td className="text-right">{r.volunteer_count}</Td>
-                    <Td className="text-right">{r.event_count}</Td>
-                    <Td className="text-right">{r.hours_total}</Td>
-                    <Td>
-                      <div className="w-28 h-2 bg-gray-100 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full ${usagePct >= 80 ? "bg-amber-500" : "bg-blue-500"}`}
-                          style={{ width: `${usagePct}%` }}
-                        />
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        {r.volunteer_count}/{limits.maxVolunteers === Infinity ? "∞" : limits.maxVolunteers} vols
-                      </div>
-                    </Td>
-                  </tr>
-                );
-              })}
-              {rows.length === 0 && (
-                <tr>
-                  <td colSpan={9} className="text-center text-gray-500 py-10">No organizations yet.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <p className="mt-1 text-sm text-gray-500">Internal view — not visible to customers.</p>
       </div>
-    </main>
-  );
-}
 
-function Stat({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4">
-      <div className="text-xs uppercase tracking-wide text-gray-500">{label}</div>
-      <div className="mt-1 text-2xl font-bold text-gray-900">{value}</div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {stats.map((s) => (
+          <Card key={s.label} padding="sm">
+            <div className="text-xs uppercase tracking-wide text-gray-500">{s.label}</div>
+            <div className="mt-1 text-2xl font-bold text-gray-900">{s.value}</div>
+          </Card>
+        ))}
+      </div>
+
+      <Card className="overflow-x-auto p-0">
+        <table className="min-w-full text-sm">
+          <thead className="bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-600">
+            <tr>
+              <Th>Organization</Th>
+              <Th>Admin</Th>
+              <Th>Plan</Th>
+              <Th>Created</Th>
+              <Th>Last login</Th>
+              <Th className="text-right">Vols</Th>
+              <Th className="text-right">Events</Th>
+              <Th className="text-right">Hours</Th>
+              <Th>Usage</Th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {rows.map((r) => {
+              const limits = PLAN_LIMITS[r.tier];
+              const cap = limits.maxVolunteers === Infinity ? 1000 : limits.maxVolunteers;
+              const rawPct = (r.volunteer_count / cap) * 100;
+              const usagePct = Math.min(100, Math.round(rawPct));
+              const overLimit = limits.maxVolunteers !== Infinity && r.volunteer_count > limits.maxVolunteers;
+              const barColor = overLimit
+                ? "bg-rose-500"
+                : usagePct >= 80
+                ? "bg-amber-500"
+                : "bg-blue-500";
+              const lastLogin = r.last_sign_in_at ? new Date(r.last_sign_in_at) : null;
+              const staleLogin = !lastLogin || now - lastLogin.getTime() > 30 * DAY;
+              return (
+                <tr key={r.id} className="hover:bg-gray-50 transition-colors">
+                  <Td>
+                    <div className="font-medium text-gray-900">{r.name}</div>
+                    <div className="text-xs text-gray-500">{r.id.slice(0, 8)}</div>
+                  </Td>
+                  <Td>{r.admin_email ?? r.contact_email ?? <span className="text-gray-400">—</span>}</Td>
+                  <Td>
+                    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${tierBadge(r.tier)}`}>
+                      {r.tier}
+                    </span>
+                  </Td>
+                  <Td className="text-gray-600">{formatDate(r.created_at)}</Td>
+                  <Td className={staleLogin ? "text-rose-600" : "text-gray-600"}>
+                    {lastLogin ? formatDate(lastLogin.toISOString()) : "never"}
+                  </Td>
+                  <Td className="text-right">{r.volunteer_count}</Td>
+                  <Td className="text-right">{r.event_count}</Td>
+                  <Td className="text-right">{r.hours_total}</Td>
+                  <Td>
+                    <div className="w-28 h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${barColor}`}
+                        style={{ width: `${usagePct}%` }}
+                      />
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {r.volunteer_count}/{limits.maxVolunteers === Infinity ? "∞" : limits.maxVolunteers} vols
+                    </div>
+                  </Td>
+                </tr>
+              );
+            })}
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={9} className="text-center text-gray-500 py-10">No organizations yet.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </Card>
     </div>
   );
 }
 
 function Th({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <th className={`px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide ${className}`}>{children}</th>;
+  return <th className={`px-4 py-3 text-left ${className}`}>{children}</th>;
 }
 
 function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {

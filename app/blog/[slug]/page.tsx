@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import { getAllPosts, getPostBySlug } from "@/lib/blog";
+import { MarketingShell } from "@/components/layout/marketing-shell";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -42,28 +44,46 @@ export default async function BlogPostPage({ params }: PageProps) {
   if (!post) notFound();
 
   return (
-    <main className="min-h-screen bg-white">
-      <article className="max-w-2xl mx-auto px-6 py-16">
-        <div className="mb-6">
-          <Link href="/blog" className="text-sm text-blue-700 hover:underline">← All posts</Link>
+    <MarketingShell>
+      <article className="mx-auto max-w-2xl px-4 py-16 lg:py-20">
+        <Link
+          href="/blog"
+          className="text-sm font-medium text-blue-600 hover:text-blue-700 inline-flex items-center gap-1 mb-8"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          All posts
+        </Link>
+
+        <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3.5 py-1.5">
+          <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+          <span className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+            Blog Post
+          </span>
         </div>
-        <h1 className="text-4xl font-bold text-gray-900 tracking-tight leading-tight">{post.title}</h1>
-        <div className="mt-4 text-sm text-gray-500">
-          {new Date(post.date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })} · Written by {post.author}, Founder of GoodTally
+
+        <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-gray-900 leading-tight mb-4">
+          {post.title}
+        </h1>
+
+        <div className="text-sm text-gray-500 mb-10 pb-10 border-b border-gray-100">
+          {new Date(post.date).toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })}
+          <span className="mx-2">·</span>
+          {post.author}
         </div>
+
         <div
-          className="prose prose-lg prose-blue mt-8 text-gray-800 leading-relaxed [&>h2]:text-2xl [&>h2]:font-bold [&>h2]:mt-10 [&>h2]:mb-3 [&>h3]:text-xl [&>h3]:font-semibold [&>h3]:mt-8 [&>h3]:mb-2 [&>p]:my-4 [&>ul]:my-4 [&>ul]:pl-6 [&>ul]:list-disc [&>li]:my-1 [&_a]:text-blue-700 [&_a]:underline [&_code]:bg-gray-100 [&_code]:px-1 [&_code]:rounded"
+          className="text-gray-700 leading-relaxed text-lg [&>h2]:text-2xl [&>h2]:font-bold [&>h2]:text-gray-900 [&>h2]:mt-12 [&>h2]:mb-4 [&>h3]:text-xl [&>h3]:font-semibold [&>h3]:text-gray-900 [&>h3]:mt-10 [&>h3]:mb-3 [&>p]:my-5 [&>ul]:my-5 [&>ul]:pl-6 [&>ul]:list-disc [&>ul>li]:my-2 [&_a]:text-blue-600 [&_a]:font-medium [&_a]:underline [&_a]:decoration-blue-200 [&_a]:underline-offset-2 [&_a:hover]:decoration-blue-600 [&_strong]:font-semibold [&_strong]:text-gray-900 [&_code]:bg-gray-100 [&_code]:text-gray-800 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-sm [&_code]:font-mono [&>hr]:my-10 [&>hr]:border-gray-200"
           dangerouslySetInnerHTML={{ __html: post.html }}
         />
-        {/* End-of-post CTA */}
-        <div className="mt-16 rounded-lg border border-blue-200 bg-blue-50 p-6 text-center">
-          <h2 className="text-xl font-bold text-gray-900">Ready to get organized?</h2>
-          <p className="mt-2 text-gray-700">Try GoodTally free. No credit card, no time limit, no upsells.</p>
-          <Link href="/signup" className="mt-4 inline-block bg-blue-600 text-white font-semibold px-6 py-3 rounded-md hover:bg-blue-700">
-            Start free
-          </Link>
+
+        <div className="mt-12 rounded-xl border border-gray-200 bg-gray-50 p-5 text-sm text-gray-600">
+          Written by <span className="font-semibold text-gray-900">{post.author}</span>, Founder of GoodTally.
         </div>
       </article>
-    </main>
+    </MarketingShell>
   );
 }

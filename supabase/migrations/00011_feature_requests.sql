@@ -32,7 +32,9 @@ CREATE TABLE IF NOT EXISTS public.feature_request_votes (
 CREATE INDEX IF NOT EXISTS feature_request_votes_request_idx ON public.feature_request_votes (request_id);
 
 -- Convenience view: request with vote count.
-CREATE OR REPLACE VIEW public.feature_requests_with_votes AS
+-- security_invoker=on so RLS policies run as the querying user, not the view owner.
+CREATE OR REPLACE VIEW public.feature_requests_with_votes
+WITH (security_invoker = on) AS
 SELECT
   fr.*,
   COALESCE(vc.vote_count, 0) AS vote_count

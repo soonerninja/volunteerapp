@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowUp, Pin, Plus, Loader2 } from "lucide-react";
+import { ArrowUp, Pin, Plus, Loader2, MessageSquare } from "lucide-react";
 
 const STATUS_LABEL: Record<string, string> = {
   under_review: "Under review",
@@ -156,9 +156,14 @@ export default function FeedbackPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Feedback & feature requests</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-gray-900">Feedback & feature requests</h1>
+          <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-blue-700">
+            New
+          </span>
+        </div>
         <p className="mt-1 text-sm text-gray-500">
-          Vote on what we build next, or submit your own idea. This is how we decide the roadmap.
+          Vote on what we build next. Submit your own idea or upvote existing ones to shape the roadmap.
         </p>
       </div>
 
@@ -194,8 +199,10 @@ export default function FeedbackPage() {
             key={f}
             type="button"
             onClick={() => setFilter(f)}
-            className={`text-xs px-3 py-1.5 rounded-full border ${
-              filter === f ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+            className={`rounded-full px-3 py-1.5 text-xs font-medium border transition-colors ${
+              filter === f
+                ? "bg-blue-600 text-white border-blue-600"
+                : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
             }`}
           >
             {f === "all" ? "All" : STATUS_LABEL[f]}
@@ -204,7 +211,7 @@ export default function FeedbackPage() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-10">
+        <div className="flex items-center justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
         </div>
       ) : (
@@ -219,28 +226,30 @@ export default function FeedbackPage() {
                     onClick={() => toggleVote(r.id)}
                     disabled={!userId}
                     className={`flex flex-col items-center justify-center w-14 rounded-md border py-2 transition-colors ${
-                      voted ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-300 bg-white text-gray-600 hover:border-blue-400"
+                      voted
+                        ? "border-blue-600 bg-blue-50 text-blue-600"
+                        : "border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100 hover:border-gray-300"
                     }`}
                     aria-label={voted ? "Remove vote" : "Upvote"}
                   >
                     <ArrowUp className="h-4 w-4" />
-                    <span className="text-sm font-semibold">{r.vote_count}</span>
+                    <span className="text-sm font-bold">{r.vote_count}</span>
                   </button>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       {r.pinned && <Pin className="h-4 w-4 text-amber-500" aria-label="Pinned" />}
                       <h3 className="text-base font-semibold text-gray-900">{r.title}</h3>
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLOR[r.status]}`}>
+                      <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${STATUS_COLOR[r.status]}`}>
                         {STATUS_LABEL[r.status]}
                       </span>
                     </div>
-                    {r.description && <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{r.description}</p>}
+                    {r.description && <p className="text-sm text-gray-600 mt-1.5 whitespace-pre-wrap">{r.description}</p>}
                     {isSuperAdmin && (
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <div className="mt-3 pt-3 border-t border-gray-100 flex items-center gap-2">
                         <select
                           value={r.status}
                           onChange={(e) => changeStatus(r.id, e.target.value)}
-                          className="text-xs rounded border-gray-300"
+                          className="text-xs rounded-md border-gray-300"
                         >
                           {Object.entries(STATUS_LABEL).map(([k, v]) => (
                             <option key={k} value={k}>{v}</option>
@@ -262,7 +271,10 @@ export default function FeedbackPage() {
           })}
           {filtered.length === 0 && (
             <Card>
-              <p className="text-sm text-gray-500 text-center">No requests match this filter yet.</p>
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <MessageSquare className="h-10 w-10 text-gray-300 mb-3" />
+                <p className="text-sm text-gray-500">No requests match this filter yet.</p>
+              </div>
             </Card>
           )}
         </div>

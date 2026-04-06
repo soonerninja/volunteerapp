@@ -13,6 +13,7 @@ import {
   FileDown,
   X,
   MessageSquare,
+  Lightbulb,
 } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { Logo } from "@/components/ui/logo";
@@ -23,6 +24,7 @@ const navigation = [
   { name: "Events", href: "/events", icon: Calendar },
   { name: "Committees", href: "/committees", icon: UsersRound },
   { name: "Exports", href: "/exports", icon: FileDown },
+  { name: "Feedback", href: "/feedback", icon: Lightbulb },
   { name: "Settings", href: "/settings", icon: Settings },
   { name: "Account", href: "/settings/account", icon: UserCog },
   { name: "Plan & Billing", href: "/settings/billing", icon: CreditCard },

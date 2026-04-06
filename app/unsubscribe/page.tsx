@@ -1,4 +1,6 @@
 import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { CheckCircle2, AlertCircle } from "lucide-react";
+import { MarketingShell } from "@/components/layout/marketing-shell";
 
 export const metadata = {
   title: "Unsubscribe — GoodTally",
@@ -49,17 +51,23 @@ export default async function UnsubscribePage({ searchParams }: Props) {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gray-50 px-6">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-        <div className="text-2xl font-bold text-blue-600 mb-6">GoodTally</div>
-        <h1 className="text-xl font-semibold text-gray-900 mb-3">
-          {state === "ok" ? "You're unsubscribed" : "Unsubscribe"}
-        </h1>
-        <p className="text-gray-600 mb-6">{message}</p>
-        <a href="/" className="text-sm font-medium text-blue-600 hover:text-blue-800">
-          Back to GoodTally →
-        </a>
-      </div>
-    </main>
+    <MarketingShell hideCta>
+      <section className="mx-auto max-w-md px-4 py-20">
+        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-8 text-center">
+          {state === "ok" ? (
+            <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto mb-4" aria-hidden="true" />
+          ) : (
+            <AlertCircle className="h-12 w-12 text-amber-500 mx-auto mb-4" aria-hidden="true" />
+          )}
+          <h1 className="text-2xl font-bold text-gray-900 mb-3">
+            {state === "ok" ? "You're unsubscribed" : "Unsubscribe"}
+          </h1>
+          <p className="text-gray-600 mb-6">{message}</p>
+          <a href="/" className="text-sm font-semibold text-blue-600 hover:text-blue-700">
+            Back to GoodTally →
+          </a>
+        </div>
+      </section>
+    </MarketingShell>
   );
 }
