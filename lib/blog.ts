@@ -144,8 +144,25 @@ function inline(text: string): string {
   t = t.replace(/`([^`]+)`/g, "<code>$1</code>");
   t = t.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
   t = t.replace(/\*([^*]+)\*/g, "<em>$1</em>");
-  t = t.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+  // Links: whitelist safe protocols only. Drops javascript:, data:, vbscript:,
+  // etc. even though our posts come from files we control — defense in depth.
+  t = t.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, label, url) => {
+    const safe = sanitizeUrl(url);
+    if (!safe) return label;
+    const rel = /^https?:/i.test(safe) ? ' rel="noopener noreferrer"' : "";
+    const target = /^https?:/i.test(safe) ? ' target="_blank"' : "";
+    return `<a href="${safe}"${target}${rel}>${label}</a>`;
+  });
   return t;
+}
+
+function sanitizeUrl(url: string): string | null {
+  const trimmed = url.trim();
+  // Allow relative, anchor, mailto, and http(s) only.
+  if (/^(https?:|mailto:|\/|#)/i.test(trimmed)) {
+    return trimmed.replace(/"/g, "&quot;");
+  }
+  return null;
 }
 
 function escapeHtml(s: string): string {

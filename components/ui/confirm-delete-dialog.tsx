@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, X } from "lucide-react";
+import { useEscapeKey } from "@/lib/hooks/use-escape-key";
 
 interface ConfirmDeleteDialogProps {
   /** Name of the thing being deleted, e.g. "Sarah Johnson" */
@@ -33,6 +34,10 @@ export function ConfirmDeleteDialog({
     setTimeout(() => inputRef.current?.focus(), 50);
   }, []);
 
+  useEscapeKey(() => {
+    if (!loading) onCancel();
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (isMatch && !loading) {
@@ -46,9 +51,6 @@ export function ConfirmDeleteDialog({
       role="dialog"
       aria-modal="true"
       aria-labelledby="confirm-delete-title"
-      onKeyDown={(e) => {
-        if (e.key === "Escape") onCancel();
-      }}
     >
       <Card className="w-full max-w-md">
         <div className="mb-4 flex items-start justify-between">
