@@ -397,10 +397,25 @@ export default function SettingsPage() {
       metadata: { email, role: inviteRole },
     });
 
+    // Fire the invite email (best-effort; row is already persisted).
+    try {
+      const res = await fetch("/api/invites/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) {
+        const { error: sendErr } = await res.json().catch(() => ({ error: "" }));
+        console.warn("[invite] email send failed:", sendErr);
+      }
+    } catch (err) {
+      console.warn("[invite] email send threw:", err);
+    }
+
     setInviteEmail("");
     setInviteRole("editor");
     setInviteSuccess(
-      `Invite sent to ${email}. They'll join your org when they sign up.`
+      `Invite sent to ${email}. They'll receive an email with a link to join.`
     );
     setInviteLoading(false);
     fetchInvites();
