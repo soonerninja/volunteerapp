@@ -8,10 +8,12 @@ export const dynamic = "force-dynamic";
 
 /**
  * Daily cron: emails the org's primary admin for every upcoming event
- * that starts in ~24 hours. Safe to run hourly too — we only consider
- * events in a 23–25h window to avoid duplicates on retries.
+ * that starts in the next 24 hours. On Vercel Hobby we're limited to
+ * one run per day, so we sweep a full 24-hour window (now+12h → now+36h)
+ * centered on ~24h out. Each event matches exactly one daily run, so
+ * admins get a single reminder ~24 hours before the event.
  *
- * Schedule (Vercel cron example): once per hour, or daily at 14:00 UTC.
+ * Schedule: daily at 13:00 UTC (8 AM CT).
  */
 export async function GET(req: Request) {
   if (!verifyCronAuth(req)) {
@@ -26,8 +28,8 @@ export async function GET(req: Request) {
   const svc = createServiceClient(url, serviceKey, { auth: { persistSession: false } });
 
   const now = Date.now();
-  const windowStart = new Date(now + 23 * 3600 * 1000).toISOString();
-  const windowEnd = new Date(now + 25 * 3600 * 1000).toISOString();
+  const windowStart = new Date(now + 12 * 3600 * 1000).toISOString();
+  const windowEnd = new Date(now + 36 * 3600 * 1000).toISOString();
 
   const { data: events, error } = await svc
     .from("events")
