@@ -78,10 +78,10 @@ export function AppSidebar({ open, onClose }: AppSidebarProps) {
                 href={item.href}
                 onClick={onClose}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
                   isActive
-                    ? "bg-blue-50 text-blue-700"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                    ? "bg-blue-50 text-blue-700 font-semibold"
+                    : "font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                 )}
               >
                 <item.icon
