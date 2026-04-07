@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ListSkeleton } from "@/components/ui/list-skeleton";
 import { PlanLimitBadge, UpgradePrompt } from "@/components/ui/upgrade-prompt";
 import { VolunteerSearchSelect } from "@/components/ui/volunteer-search-select";
 import type { Committee, Volunteer, CommitteePriority } from "@/types/database";
@@ -728,13 +729,7 @@ export default function CommitteesPage() {
 
       {/* Committee List */}
       {loading ? (
-        <div className="flex justify-center py-12">
-          <div
-            className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"
-            role="status"
-            aria-label="Loading committees"
-          />
-        </div>
+        <ListSkeleton rows={4} label="Loading committees" />
       ) : committees.length === 0 ? (
         <EmptyState
           icon={UsersRound}

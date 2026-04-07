@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { X, Loader2, Heart, AlertTriangle } from "lucide-react";
+import { useEscapeKey } from "@/lib/hooks/use-escape-key";
 
 interface RetentionModalProps {
   currentPlan: string;
@@ -19,6 +20,8 @@ export function RetentionModal({
   const [accepting, setAccepting] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEscapeKey(onClose);
 
   async function handleAcceptDiscount() {
     setAccepting(true);
@@ -39,7 +42,12 @@ export function RetentionModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="retention-modal-title"
+    >
       <div className="relative w-full max-w-md rounded-2xl bg-white shadow-xl">
         <button
           onClick={onClose}
@@ -54,7 +62,7 @@ export function RetentionModal({
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
               <Heart className="h-7 w-7 text-green-600" />
             </div>
-            <h2 className="text-xl font-bold text-gray-900">Thank you for staying!</h2>
+            <h2 id="retention-modal-title" className="text-xl font-bold text-gray-900">Thank you for staying!</h2>
             <p className="mt-2 text-sm text-gray-600">
               25% off has been applied to your next renewal. We appreciate your support.
             </p>
@@ -71,7 +79,7 @@ export function RetentionModal({
               <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-100">
                 <AlertTriangle className="h-7 w-7 text-amber-600" />
               </div>
-              <h2 className="text-xl font-bold text-gray-900">Before you go...</h2>
+              <h2 id="retention-modal-title" className="text-xl font-bold text-gray-900">Before you go...</h2>
               <p className="mt-2 text-sm text-gray-600">
                 We&apos;d love to keep you on {currentPlan}. As a thank you for being a GoodTally customer, we&apos;d like to offer you:
               </p>

@@ -1,20 +1,28 @@
 User-agent: *
+
+# Indexable marketing pages
 Allow: /
 Allow: /pricing
+Allow: /compare
+Allow: /blog
 Allow: /contact
 Allow: /signup
 Allow: /login
 Allow: /terms
 Allow: /privacy
 
-# Block authenticated app pages
+# Block authenticated / internal app pages
 Disallow: /dashboard
 Disallow: /volunteers
 Disallow: /events
 Disallow: /committees
 Disallow: /exports
 Disallow: /settings
+Disallow: /account
+Disallow: /feedback
+Disallow: /super
 Disallow: /onboarding
 Disallow: /auth/
+Disallow: /unsubscribe
 
 Sitemap: https://goodtally.app/sitemap.xml
