@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowUp, Pin, Plus, Loader2, MessageSquare } from "lucide-react";
+import { ArrowUp, Pin, Plus, Loader2, MessageSquare, Trash2 } from "lucide-react";
 
 const STATUS_LABEL: Record<string, string> = {
   under_review: "Under review",
@@ -151,6 +151,21 @@ export default function FeedbackPage() {
     if (res.ok) load();
   };
 
+  const deleteRequest = async (id: string, title: string) => {
+    if (!confirm(`Delete "${title}"? This cannot be undone.`)) return;
+    // Optimistic removal
+    setRequests((prev) => prev.filter((r) => r.id !== id));
+    const res = await fetch("/api/feedback/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    if (!res.ok) {
+      // Reload to recover on failure
+      load();
+    }
+  };
+
   const filtered = requests.filter((r) => filter === "all" || r.status === filter);
 
   return (
@@ -245,7 +260,7 @@ export default function FeedbackPage() {
                     </div>
                     {r.description && <p className="text-sm text-gray-600 mt-1.5 whitespace-pre-wrap">{r.description}</p>}
                     {isSuperAdmin && (
-                      <div className="mt-3 pt-3 border-t border-gray-100 flex items-center gap-2">
+                      <div className="mt-3 pt-3 border-t border-gray-100 flex items-center gap-3">
                         <select
                           value={r.status}
                           onChange={(e) => changeStatus(r.id, e.target.value)}
@@ -261,6 +276,15 @@ export default function FeedbackPage() {
                           className="text-xs text-gray-600 hover:text-amber-600"
                         >
                           {r.pinned ? "Unpin" : "Pin"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteRequest(r.id, r.title)}
+                          className="ml-auto inline-flex items-center gap-1 text-xs text-gray-500 hover:text-rose-600"
+                          aria-label={`Delete request: ${r.title}`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                          Delete
                         </button>
                       </div>
                     )}

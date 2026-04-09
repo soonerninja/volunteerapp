@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Check } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
@@ -17,7 +17,7 @@ const VALUE_BULLETS = [
   "Paid plans start at just $20/year — not $200/month",
 ];
 
-export default function SignupPage() {
+function SignupForm() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -25,7 +25,16 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
+
+  // Pre-fill (and lock) the email when the user arrives via an invite link.
+  const inviteEmail = searchParams.get("invite")?.toLowerCase().trim() ?? "";
+  const isInvite = Boolean(inviteEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail));
+
+  useEffect(() => {
+    if (isInvite) setEmail(inviteEmail);
+  }, [isInvite, inviteEmail]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -43,6 +52,36 @@ export default function SignupPage() {
 
     setLoading(true);
 
+    // Invite flow: create the account server-side with email_confirm=true
+    // so the user doesn't need to re-verify (the invite email already
+    // proved ownership). Then sign in with the fresh credentials.
+    if (isInvite) {
+      const res = await fetch("/api/invites/accept", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: inviteEmail, password, fullName: trimmedName }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data?.error || "Failed to accept invite.");
+        setLoading(false);
+        return;
+      }
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: inviteEmail,
+        password,
+      });
+      if (signInError) {
+        setError(signInError.message);
+        setLoading(false);
+        return;
+      }
+      router.push("/dashboard");
+      router.refresh();
+      return;
+    }
+
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -50,7 +89,7 @@ export default function SignupPage() {
         data: {
           full_name: trimmedName,
         },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: `${siteUrl}/auth/callback`,
       },
     });
 
@@ -161,10 +200,12 @@ export default function SignupPage() {
         <div className="mx-auto w-full max-w-sm">
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-gray-900">
-              Create your account
+              {isInvite ? "Accept your invite" : "Create your account"}
             </h1>
             <p className="mt-1.5 text-sm text-gray-500">
-              Free forever for small teams.
+              {isInvite
+                ? "Finish setting up your account to join your team."
+                : "Free forever for small teams."}
             </p>
           </div>
 
@@ -198,11 +239,13 @@ export default function SignupPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              readOnly={isInvite}
+              disabled={isInvite}
             />
 
             <Input
               id="password"
-              label="Password"
+              label={isInvite ? "Create a password" : "Password"}
               type="password"
               placeholder="At least 6 characters"
               value={password}
@@ -212,7 +255,7 @@ export default function SignupPage() {
             />
 
             <Button type="submit" loading={loading} className="w-full">
-              Create Free Account
+              {isInvite ? "Accept Invite & Continue" : "Create Free Account"}
             </Button>
           </form>
 
@@ -240,5 +283,23 @@ export default function SignupPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-gray-50">
+          <div
+            className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"
+            role="status"
+            aria-label="Loading"
+          />
+        </div>
+      }
+    >
+      <SignupForm />
+    </Suspense>
   );
 }

@@ -25,6 +25,12 @@ export interface SendEmailArgs {
   text?: string;
   category: EmailCategory;
   userId?: string | null;
+  /**
+   * Optional: the recipient's email address, used only to build a
+   * one-click unsubscribe link when the recipient isn't yet a user
+   * (e.g. team invite emails). Ignored if `userId` is provided.
+   */
+  recipientEmail?: string | null;
 }
 
 export interface SendEmailResult {
@@ -39,10 +45,22 @@ export interface SendEmailResult {
  * for CAN-SPAM). Unsubscribe is per-category so a user can drop the
  * weekly digest without losing invite or billing emails.
  */
-export function renderFooter(category: EmailCategory, userId?: string | null): { html: string; text: string } {
+export function renderFooter(
+  category: EmailCategory,
+  userId?: string | null,
+  recipientEmail?: string | null
+): { html: string; text: string } {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://goodtally.app";
-  const unsubToken = userId ? `?u=${encodeURIComponent(userId)}&c=${category}` : `?c=${category}`;
-  const unsubUrl = `${siteUrl}/unsubscribe${unsubToken}`;
+  // Prefer userId when we have it; fall back to the raw email for
+  // recipients who aren't yet GoodTally users (e.g. invitees).
+  const params = new URLSearchParams();
+  params.set("c", category);
+  if (userId) {
+    params.set("u", userId);
+  } else if (recipientEmail) {
+    params.set("e", recipientEmail);
+  }
+  const unsubUrl = `${siteUrl}/unsubscribe?${params.toString()}`;
 
   const html = `
     <hr style="border:none;border-top:1px solid #e5e7eb;margin:32px 0 16px;" />
@@ -70,7 +88,13 @@ export async function sendEmail(args: SendEmailArgs): Promise<SendEmailResult> {
     return { ok: false, skipped: true, error: "RESEND_API_KEY not configured" };
   }
 
-  const footer = renderFooter(args.category, args.userId);
+  // If we don't have a userId, fall back to the recipient's email
+  // address so the unsubscribe link still works. Only honoured when
+  // `to` is a single address — bulk sends shouldn't embed one email.
+  const fallbackEmail =
+    args.recipientEmail ??
+    (typeof args.to === "string" ? args.to : null);
+  const footer = renderFooter(args.category, args.userId, fallbackEmail);
   const html = `${args.html}\n${footer.html}`;
   const text = (args.text ?? stripHtml(args.html)) + footer.text;
 

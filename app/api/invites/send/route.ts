@@ -115,6 +115,7 @@ export async function POST(req: Request) {
     subject,
     html,
     category: "team_invite",
+    recipientEmail: email,
   });
 
   if (!result.ok && !result.skipped) {
