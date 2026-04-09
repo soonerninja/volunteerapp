@@ -14,7 +14,9 @@ export type EmailCategory =
   | "team_invite_accepted"
   | "event_reminder"
   | "weekly_digest"
-  | "feature_status";
+  | "feature_status"
+  | "event_saved"
+  | "volunteer_assigned";
 
 export interface SendEmailArgs {
   to: string | string[];

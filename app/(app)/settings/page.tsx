@@ -372,32 +372,35 @@ export default function SettingsPage() {
     setInviteError("");
     setInviteSuccess("");
 
-    const { data: newInvite, error } = await supabase
-      .from("team_invites")
-      .insert({
-        org_id: orgId,
-        email,
-        role: inviteRole,
-        invited_by: profile.id,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      setInviteError(
-        error.message.includes("duplicate")
-          ? "This email has already been invited."
-          : error.message
-      );
+    // Server route handles the insert (via service role, bypassing the
+    // team_invites RLS bug) and email send in one call.
+    let response: Response;
+    try {
+      response = await fetch("/api/invites/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, role: inviteRole }),
+      });
+    } catch {
+      setInviteError("Network error — please try again.");
       setInviteLoading(false);
       return;
     }
 
-    // Immediately show the new invite in the list. If the DB returned the
-    // row (it should via INSERT … RETURNING), use it; otherwise build a
-    // synthetic record so the UI is never blank.
-    const optimisticInvite: TeamInvite = newInvite ?? {
-      id: `temp-${Date.now()}`,
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      if (response.status === 409) {
+        setInviteError("This email has already been invited.");
+      } else {
+        setInviteError(data?.error || "Failed to send invite.");
+      }
+      setInviteLoading(false);
+      return;
+    }
+
+    // Optimistic UI: drop in a placeholder row until the next fetchInvites().
+    const optimisticInvite: TeamInvite = {
+      id: data?.inviteId || `temp-${Date.now()}`,
       org_id: orgId,
       email,
       role: inviteRole as TeamInvite["role"],
@@ -412,32 +415,26 @@ export default function SettingsPage() {
       user_id: profile.id,
       action: "team.invited",
       entity_type: "team_invite",
-      entity_id: newInvite?.id ?? null,
+      entity_id: data?.inviteId ?? null,
       metadata: { email, role: inviteRole },
     });
 
-    // Fire the invite email (best-effort; row is already persisted).
-    try {
-      const res = await fetch("/api/invites/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      if (!res.ok) {
-        const { error: sendErr } = await res.json().catch(() => ({ error: "" }));
-        console.warn("[invite] email send failed:", sendErr);
-      }
-    } catch (err) {
-      console.warn("[invite] email send threw:", err);
-    }
-
     setInviteEmail("");
     setInviteRole("editor");
-    setInviteSuccess(
-      `Invite sent to ${email}. They'll receive an email with a link to join.`
-    );
+    if (data?.emailError) {
+      setInviteSuccess(
+        `Invite saved for ${email}, but the email failed to send (${data.emailError}).`
+      );
+    } else if (data?.skipped) {
+      setInviteSuccess(
+        `Invite saved for ${email}. Email delivery is not configured on this environment.`
+      );
+    } else {
+      setInviteSuccess(
+        `Invite sent to ${email}. They'll receive an email with a link to join.`
+      );
+    }
     setInviteLoading(false);
-    // Refresh from DB to get authoritative data (replaces the optimistic entry).
     fetchInvites();
     setTimeout(() => setInviteSuccess(""), 5000);
     inviteEmailRef.current?.focus();

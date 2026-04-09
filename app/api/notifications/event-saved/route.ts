@@ -1,66 +1,69 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { createServiceClient } from "@/lib/supabase/service";
-import {
-  getOrgAdmins,
-  sendEmailToAll,
-  eventSavedHtml,
-} from "@/lib/notifications/email";
+import { createClient as createServerClient } from "@/lib/supabase/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { sendEmail } from "@/lib/email/send";
+import { eventSavedEmail } from "@/lib/email/templates";
 
 export const runtime = "nodejs";
 
+/**
+ * Notifies admins when an event is created or updated. Fire-and-forget
+ * from the client, but awaited here so Resend actually receives the
+ * request before the serverless function terminates.
+ *
+ * Body: { eventId: string, action: "created" | "updated" }
+ */
 export async function POST(req: NextRequest) {
-  // 1. Auth check
-  const supabase = await createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const supabase = await createServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // 2. Parse body
   const body = await req.json().catch(() => null);
   const eventId: string = body?.eventId ?? "";
   const action: "created" | "updated" = body?.action === "created" ? "created" : "updated";
+  if (!eventId) return NextResponse.json({ error: "Missing eventId" }, { status: 400 });
 
-  if (!eventId) {
-    return NextResponse.json({ error: "Missing eventId" }, { status: 400 });
-  }
-
-  // 3. Fetch caller's org
   const { data: callerProfile } = await supabase
     .from("profiles")
     .select("org_id")
     .eq("id", user.id)
-    .single();
-
+    .maybeSingle();
   if (!callerProfile?.org_id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // 4. Fetch event via service role
-  const service = createServiceClient();
-  const { data: event, error: eventError } = await service
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!serviceKey || !supabaseUrl) {
+    return NextResponse.json({ error: "Server not configured" }, { status: 500 });
+  }
+  const service = createSupabaseClient(supabaseUrl, serviceKey, {
+    auth: { persistSession: false },
+  });
+
+  const { data: event, error: eventErr } = await service
     .from("events")
     .select("id, org_id, title, start_date, location")
     .eq("id", eventId)
-    .single();
-
-  if (eventError || !event) {
+    .maybeSingle();
+  if (eventErr || !event) {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
-
-  // 5. Verify org ownership
   if (event.org_id !== callerProfile.org_id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // 6. Fetch org name + admins
-  const [{ data: org }, admins] = await Promise.all([
-    service.from("organizations").select("name").eq("id", event.org_id).single(),
-    getOrgAdmins(service, event.org_id),
+  const [{ data: org }, { data: admins }] = await Promise.all([
+    service.from("organizations").select("name").eq("id", event.org_id).maybeSingle(),
+    service
+      .from("profiles")
+      .select("email, full_name")
+      .eq("org_id", event.org_id)
+      .in("role", ["owner", "admin"]),
   ]);
 
-  if (!admins.length) {
+  const recipients = (admins ?? []).filter((a) => !!a.email);
+  if (recipients.length === 0) {
     return NextResponse.json({ sent: 0 });
   }
 
@@ -74,19 +77,26 @@ export async function POST(req: NextRequest) {
     timeZoneName: "short",
   });
 
-  const subject =
-    action === "created"
-      ? `Event created: ${event.title}`
-      : `Event updated: ${event.title}`;
-
-  const html = eventSavedHtml({
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://goodtally.app";
+  const { subject, html } = eventSavedEmail({
     action,
     eventTitle: event.title,
     eventDate,
     eventLocation: event.location ?? null,
     orgName: org?.name ?? "Your organization",
+    appUrl: siteUrl,
   });
 
-  const sent = await sendEmailToAll(admins, subject, html);
+  const results = await Promise.allSettled(
+    recipients.map((r) =>
+      sendEmail({
+        to: r.email as string,
+        subject,
+        html,
+        category: "event_saved",
+      })
+    )
+  );
+  const sent = results.filter((r) => r.status === "fulfilled" && r.value.ok).length;
   return NextResponse.json({ sent });
 }

@@ -207,12 +207,18 @@ export default function EventsPage() {
 
     setSaving(false);
     resetForm();
-    // Fire-and-forget: notify admins of new event
-    fetch("/api/notifications/event-saved", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ eventId: newEvent.id, action: "created" }),
-    });
+    // Notify admins of new event. Awaited so serverless doesn't terminate
+    // before the notification request is flushed; wrapped so email problems
+    // never block navigation.
+    try {
+      await fetch("/api/notifications/event-saved", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId: newEvent.id, action: "created" }),
+      });
+    } catch {
+      /* notification failures shouldn't block UX */
+    }
     router.push(`/events/${newEvent.id}`);
   };
 

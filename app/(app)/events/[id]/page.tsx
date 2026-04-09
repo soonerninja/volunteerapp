@@ -185,12 +185,18 @@ export default function EventDetailPage() {
     setSaving(false);
     fetchEvent();
     setTimeout(() => setSuccess(""), 3000);
-    // Fire-and-forget: notify admins of updated event
-    fetch("/api/notifications/event-saved", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ eventId: event.id, action: "updated" }),
-    });
+    // Notify admins of the update. Awaited so the Resend call actually
+    // completes before the function terminates; wrapped so failures never
+    // surface to the user here.
+    try {
+      await fetch("/api/notifications/event-saved", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId: event.id, action: "updated" }),
+      });
+    } catch {
+      /* notification failures shouldn't block UX */
+    }
   };
 
   const handleDelete = () => {
@@ -251,12 +257,17 @@ export default function EventDetailPage() {
       metadata: { volunteer_id: stagedVolunteer.id },
     });
 
-    // Fire-and-forget: notify admins of volunteer assignment
-    fetch("/api/notifications/volunteer-assigned", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ eventId: event.id, volunteerId: stagedVolunteer.id }),
-    });
+    // Notify admins of the new signup. Awaited so the email actually gets
+    // dispatched before the function ends; wrapped so it can't block UX.
+    try {
+      await fetch("/api/notifications/volunteer-assigned", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId: event.id, volunteerId: stagedVolunteer.id }),
+      });
+    } catch {
+      /* notification failures shouldn't block UX */
+    }
     setStagedVolunteer(null);
     setAssignRole("");
     fetchEventVolunteers();

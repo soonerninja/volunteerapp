@@ -110,6 +110,53 @@ export function weeklyDigestEmail(args: {
   return { subject, html };
 }
 
+export function eventSavedEmail(args: {
+  action: "created" | "updated";
+  eventTitle: string;
+  eventDate: string;
+  eventLocation: string | null;
+  orgName: string;
+  appUrl: string;
+}): { subject: string; html: string } {
+  const verb = args.action === "created" ? "created" : "updated";
+  const subject = `Event ${verb}: ${args.eventTitle}`;
+  const html = layout(`
+    <h1 style="font-size:22px;margin:0 0 16px;">Event ${escape(verb)}</h1>
+    <p>An event was just ${escape(verb)} in <strong>${escape(args.orgName)}</strong>.</p>
+    <ul style="background:#f9fafb;border-radius:8px;padding:16px 20px;list-style:none;">
+      <li><strong>Event:</strong> ${escape(args.eventTitle)}</li>
+      <li><strong>When:</strong> ${escape(args.eventDate)}</li>
+      ${args.eventLocation ? `<li><strong>Where:</strong> ${escape(args.eventLocation)}</li>` : ""}
+    </ul>
+    <p style="margin:24px 0;">
+      <a href="${args.appUrl}/events" style="display:inline-block;background:${BRAND};color:#fff;padding:12px 22px;border-radius:6px;text-decoration:none;font-weight:600;">Open events</a>
+    </p>
+  `);
+  return { subject, html };
+}
+
+export function volunteerAssignedEmail(args: {
+  volunteerName: string;
+  eventTitle: string;
+  eventDate: string;
+  orgName: string;
+  appUrl: string;
+}): { subject: string; html: string } {
+  const subject = `New volunteer signed up: ${args.volunteerName}`;
+  const html = layout(`
+    <h1 style="font-size:22px;margin:0 0 16px;">A volunteer joined an event</h1>
+    <p><strong>${escape(args.volunteerName)}</strong> was added to an event in <strong>${escape(args.orgName)}</strong>.</p>
+    <ul style="background:#f9fafb;border-radius:8px;padding:16px 20px;list-style:none;">
+      <li><strong>Event:</strong> ${escape(args.eventTitle)}</li>
+      <li><strong>When:</strong> ${escape(args.eventDate)}</li>
+    </ul>
+    <p style="margin:24px 0;">
+      <a href="${args.appUrl}/events" style="display:inline-block;background:${BRAND};color:#fff;padding:12px 22px;border-radius:6px;text-decoration:none;font-weight:600;">Open events</a>
+    </p>
+  `);
+  return { subject, html };
+}
+
 export function featureStatusEmail(args: {
   title: string;
   status: string;
