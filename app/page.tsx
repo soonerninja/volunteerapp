@@ -93,6 +93,15 @@ export default function HomePage() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
           <LogoLink />
           <div className="flex items-center gap-4">
+            <Link href="/compare" className="hidden sm:inline text-sm font-medium text-gray-600 hover:text-gray-900">
+              Compare
+            </Link>
+            <Link href="/pricing" className="hidden sm:inline text-sm font-medium text-gray-600 hover:text-gray-900">
+              Pricing
+            </Link>
+            <Link href="/blog" className="hidden sm:inline text-sm font-medium text-gray-600 hover:text-gray-900">
+              Blog
+            </Link>
             <Link
               href="/login"
               className="text-sm font-medium text-gray-600 hover:text-gray-900"

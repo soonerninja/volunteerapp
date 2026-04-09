@@ -1,88 +1,101 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createServiceClient } from "@/lib/supabase/service";
-import {
-  getOrgAdmins,
-  sendEmailToAll,
-  eventReminderHtml,
-} from "@/lib/notifications/email";
+import { NextResponse } from "next/server";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { verifyCronAuth } from "@/lib/cron-auth";
+import { sendEmail } from "@/lib/email/send";
+import { eventReminderEmail } from "@/lib/email/templates";
 
-export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest) {
-  // Verify cron secret
-  const auth = req.headers.get("authorization") ?? "";
-  const secret = process.env.CRON_SECRET ?? "";
-  if (!secret || auth !== `Bearer ${secret}`) {
+/**
+ * Daily cron: emails the org's primary admin for every upcoming event
+ * that starts in the next 24 hours. On Vercel Hobby we're limited to
+ * one run per day, so we sweep a full 24-hour window (now+12h → now+36h)
+ * centered on ~24h out. Each event matches exactly one daily run, so
+ * admins get a single reminder ~24 hours before the event.
+ *
+ * Schedule: daily at 13:00 UTC (8 AM CT).
+ */
+export async function GET(req: Request) {
+  if (!verifyCronAuth(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const service = createServiceClient();
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceKey) {
+    return NextResponse.json({ error: "service role not configured" }, { status: 500 });
+  }
+  const svc = createServiceClient(url, serviceKey, { auth: { persistSession: false } });
 
-  // Build tomorrow's UTC date window
-  const now = new Date();
-  const tomorrowStart = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0)
-  );
-  const dayAfterStart = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 2, 0, 0, 0)
-  );
+  const now = Date.now();
+  const windowStart = new Date(now + 12 * 3600 * 1000).toISOString();
+  const windowEnd = new Date(now + 36 * 3600 * 1000).toISOString();
 
-  // Fetch all upcoming events starting tomorrow
-  const { data: events, error: eventsError } = await service
+  const { data: events, error } = await svc
     .from("events")
-    .select("id, org_id, title, start_date, location")
-    .eq("status", "upcoming")
-    .gte("start_date", tomorrowStart.toISOString())
-    .lt("start_date", dayAfterStart.toISOString());
+    .select("id, org_id, title, start_date, location, status")
+    .in("status", ["upcoming", "active"])
+    .gte("start_date", windowStart)
+    .lte("start_date", windowEnd);
 
-  if (eventsError) {
-    console.error("[event-reminders] Failed to fetch events:", eventsError.message);
-    return NextResponse.json({ error: "Failed to fetch events" }, { status: 500 });
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  let sent = 0;
+  const skipped: string[] = [];
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://goodtally.app";
+
+  for (const ev of events ?? []) {
+    // Find primary admin for this org.
+    const { data: admin } = await svc
+      .from("profiles")
+      .select("id, email, full_name")
+      .eq("org_id", ev.org_id)
+      .in("role", ["owner", "admin"])
+      .order("role", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (!admin?.email) {
+      skipped.push(ev.id);
+      continue;
+    }
+
+    // Honor unsubscribes for this category.
+    const { data: unsub } = await svc
+      .from("email_unsubscribes")
+      .select("id")
+      .eq("user_id", admin.id)
+      .eq("category", "event_reminder")
+      .maybeSingle();
+    if (unsub) {
+      skipped.push(ev.id);
+      continue;
+    }
+
+    // Signup count
+    const { count: signupCount } = await svc
+      .from("event_volunteers")
+      .select("id", { count: "exact", head: true })
+      .eq("event_id", ev.id);
+
+    const { subject, html } = eventReminderEmail({
+      adminName: admin.full_name || admin.email.split("@")[0],
+      eventTitle: ev.title,
+      startDate: new Date(ev.start_date).toLocaleString("en-US", { dateStyle: "full", timeStyle: "short" }),
+      location: ev.location,
+      signupCount: signupCount ?? 0,
+      appUrl: siteUrl,
+    });
+
+    const res = await sendEmail({
+      to: admin.email,
+      subject,
+      html,
+      category: "event_reminder",
+      userId: admin.id,
+    });
+    if (res.ok || res.skipped) sent++;
   }
 
-  if (!events || events.length === 0) {
-    return NextResponse.json({ orgsNotified: 0, emailsSent: 0 });
-  }
-
-  // Group events by org_id
-  const byOrg = new Map<string, typeof events>();
-  for (const event of events) {
-    const list = byOrg.get(event.org_id) ?? [];
-    list.push(event);
-    byOrg.set(event.org_id, list);
-  }
-
-  let orgsNotified = 0;
-  let emailsSent = 0;
-
-  for (const [orgId, orgEvents] of byOrg) {
-    const [{ data: org }, admins] = await Promise.all([
-      service.from("organizations").select("name").eq("id", orgId).single(),
-      getOrgAdmins(service, orgId),
-    ]);
-
-    if (!admins.length) continue;
-
-    const formattedEvents = orgEvents.map((e) => ({
-      title: e.title,
-      start_date: new Date(e.start_date).toLocaleString("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-        timeZoneName: "short",
-      }),
-      location: e.location ?? null,
-    }));
-
-    const orgName = org?.name ?? "Your organization";
-    const count = orgEvents.length;
-    const subject = `Reminder: ${count} event${count !== 1 ? "s" : ""} tomorrow — ${orgName}`;
-
-    const html = eventReminderHtml({ events: formattedEvents, orgName });
-    const sent = await sendEmailToAll(admins, subject, html);
-
-    emailsSent += sent;
-    orgsNotified++;
-  }
-
-  return NextResponse.json({ orgsNotified, emailsSent });
+  return NextResponse.json({ ok: true, considered: events?.length ?? 0, sent, skipped: skipped.length });
 }

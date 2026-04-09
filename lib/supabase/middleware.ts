@@ -50,11 +50,15 @@ export async function updateSession(request: NextRequest) {
   // Public routes that don't require auth
   const publicRoutes = ["/login", "/signup", "/forgot-password", "/auth/callback"];
   const isPublicRoute = publicRoutes.some((route) => pathname.startsWith(route));
-  const marketingRoutes = ["/", "/pricing", "/terms", "/privacy", "/contact"];
+  // Routes accessible without auth that should NOT bounce logged-in users either
+  // (e.g. one-click unsubscribe must work whether signed in or not).
+  const openRoutes = ["/unsubscribe"];
+  const isOpenRoute = openRoutes.some((route) => pathname === route || pathname.startsWith(route + "/"));
+  const marketingRoutes = ["/", "/pricing", "/terms", "/privacy", "/contact", "/compare", "/blog"];
   const isMarketingRoute = marketingRoutes.some((route) => pathname === route || pathname.startsWith(route + "/"));
 
   // If not authenticated and trying to access app routes, redirect to login
-  if (!user && !isPublicRoute && !isMarketingRoute) {
+  if (!user && !isPublicRoute && !isMarketingRoute && !isOpenRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

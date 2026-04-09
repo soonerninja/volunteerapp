@@ -351,6 +351,10 @@ export default function BillingPage() {
               const style = TIER_CARD_STYLES[tier];
               const isCurrent = tier === plan.tier;
               const isUpgrade = isHigherTier(plan.tier, tier);
+              // Growth → Starter is the only supported paid downgrade path.
+              // Growth → Free goes through the cancel/retention flow.
+              const isDowngrade =
+                plan.tier === "growth" && tier === "starter";
 
               return (
                 <div
@@ -407,6 +411,10 @@ export default function BillingPage() {
                         className={`block w-full rounded-lg px-4 py-2.5 text-center text-sm font-semibold transition-colors disabled:opacity-60 ${style.btn}`}
                       />
                     )
+                  ) : isDowngrade && canManageBilling ? (
+                    <DowngradeButton
+                      className={`block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-center text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-60`}
+                    />
                   ) : isCurrent ? (
                     <div className="rounded-lg border border-gray-300 bg-gray-100 px-4 py-2.5 text-center text-sm font-medium text-gray-500">
                       Current Plan
@@ -510,6 +518,71 @@ function UpgradeButton({ className }: { className?: string }) {
           <Sparkles className="h-4 w-4" aria-hidden="true" />
         )}
         Upgrade to Growth
+      </button>
+      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+    </div>
+  );
+}
+
+function DowngradeButton({ className }: { className?: string }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
+
+  async function handleConfirm() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/stripe/downgrade", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Something went wrong. Please try again.");
+        setLoading(false);
+        setConfirming(false);
+        return;
+      }
+      window.location.href = "/settings/billing?success=1";
+    } catch {
+      setError("Network error. Please try again.");
+      setLoading(false);
+      setConfirming(false);
+    }
+  }
+
+  if (confirming) {
+    return (
+      <div className="space-y-2">
+        <p className="text-xs text-gray-600 text-center">
+          Downgrade to Starter? Unused Growth time is credited to your next invoice.
+        </p>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setConfirming(false)}
+            disabled={loading}
+            className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={loading}
+            className="flex-1 rounded-lg bg-gray-900 px-3 py-2 text-xs font-semibold text-white hover:bg-gray-800 disabled:opacity-60"
+          >
+            {loading ? "Working…" : "Confirm"}
+          </button>
+        </div>
+        {error && <p className="mt-1 text-xs text-red-600 text-center">{error}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <button
+        onClick={() => setConfirming(true)}
+        className={className ?? "inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"}
+      >
+        Downgrade to Starter
       </button>
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
     </div>

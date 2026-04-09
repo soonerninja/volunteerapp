@@ -177,7 +177,8 @@ export interface DashboardStats {
   hoursThisYear: number;
 }
 
-export interface UpcomingEvent extends Event {
+export interface UpcomingEvent
+  extends Pick<Event, "id" | "title" | "start_date" | "location" | "max_volunteers"> {
   signup_count: number;
 }
 

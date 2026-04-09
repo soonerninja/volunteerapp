@@ -44,7 +44,7 @@ export default async function DashboardPage() {
     // Upcoming events (next 30 days)
     supabase
       .from("events")
-      .select("*, event_volunteers(count)")
+      .select("id, title, start_date, location, max_volunteers, event_volunteers(count)")
       .eq("org_id", orgId)
       .in("status", ["upcoming", "active"])
       .gte("start_date", new Date().toISOString())
