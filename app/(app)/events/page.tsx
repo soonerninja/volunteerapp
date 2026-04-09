@@ -206,6 +206,12 @@ export default function EventsPage() {
 
     setSaving(false);
     resetForm();
+    // Fire-and-forget: notify admins of new event
+    fetch("/api/notifications/event-saved", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ eventId: newEvent.id, action: "created" }),
+    });
     router.push(`/events/${newEvent.id}`);
   };
 

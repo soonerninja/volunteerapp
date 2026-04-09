@@ -371,31 +371,18 @@ export default function SettingsPage() {
     setInviteError("");
     setInviteSuccess("");
 
-    const { error } = await supabase.from("team_invites").insert({
-      org_id: orgId,
-      email,
-      role: inviteRole,
-      invited_by: profile.id,
+    const res = await fetch("/api/team-invites", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, role: inviteRole }),
     });
+    const data = await res.json().catch(() => ({}));
 
-    if (error) {
-      setInviteError(
-        error.message.includes("duplicate")
-          ? "This email has already been invited."
-          : error.message
-      );
+    if (!res.ok) {
+      setInviteError(data?.error ?? "Failed to send invite. Please try again.");
       setInviteLoading(false);
       return;
     }
-
-    await supabase.from("audit_log").insert({
-      org_id: orgId,
-      user_id: profile.id,
-      action: "team.invited",
-      entity_type: "team_invite",
-      entity_id: null,
-      metadata: { email, role: inviteRole },
-    });
 
     setInviteEmail("");
     setInviteRole("editor");
