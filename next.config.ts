@@ -1,13 +1,24 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
+// In development, Next.js + Turbopack require 'unsafe-eval' for HMR and
+// Fast Refresh. In production this is a real XSS amplification risk, so
+// it is only added to the CSP when NODE_ENV !== "production".
+const isDev = process.env.NODE_ENV !== "production";
+const scriptSrc = [
+  "script-src",
+  "'self'",
+  "'unsafe-inline'",
+  ...(isDev ? ["'unsafe-eval'"] : []),
+].join(" ");
+
 const securityHeaders = [
   // Content Security Policy
   {
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",  // unsafe-eval needed for Next.js dev
+      scriptSrc,
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data:",
@@ -15,6 +26,8 @@ const securityHeaders = [
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
+      "object-src 'none'",
+      "upgrade-insecure-requests",
     ].join("; "),
   },
   // Prevent clickjacking

@@ -2,15 +2,51 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy – GoodTally",
+  title: "Privacy Policy",
+  description:
+    "Learn how GoodTally protects your nonprofit's volunteer data. Our privacy policy covers data collection, storage, your rights, and how to contact us.",
   alternates: {
-    canonical: "https://goodtally.app/privacy",
+    canonical: "/privacy",
   },
+  openGraph: {
+    title: "Privacy Policy — GoodTally",
+    description:
+      "How GoodTally collects, stores, and protects your nonprofit's data.",
+    url: "https://goodtally.app/privacy",
+    type: "website",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+};
+
+const privacyBreadcrumbJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    {
+      "@type": "ListItem",
+      position: 1,
+      name: "Home",
+      item: "https://goodtally.app",
+    },
+    {
+      "@type": "ListItem",
+      position: 2,
+      name: "Privacy Policy",
+      item: "https://goodtally.app/privacy",
+    },
+  ],
 };
 
 export default function PrivacyPolicyPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(privacyBreadcrumbJsonLd) }}
+      />
       {/* Nav */}
       <header className="border-b border-gray-100 bg-white/80 backdrop-blur-sm">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
@@ -26,7 +62,7 @@ export default function PrivacyPolicyPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-4 py-16">
+      <main id="main-content" className="mx-auto max-w-3xl px-4 py-16">
         <div className="rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
           <h1 className="text-2xl font-bold text-gray-900">
             GoodTally &mdash; Privacy Policy

@@ -22,11 +22,23 @@ import { PricingCtaButton } from "@/components/ui/pricing-cta-button";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
-  title: "Pricing – GoodTally",
+  title: "Pricing",
   description:
-    "Simple, transparent pricing for volunteer management. Start free, upgrade as you grow. Plans for nonprofits of every size.",
+    "Simple, transparent pricing for volunteer management software. Free forever for up to 10 volunteers. Paid plans start at $49/year — no credit card required to start.",
+  keywords: [
+    "volunteer management pricing",
+    "nonprofit software pricing",
+    "affordable volunteer tracker",
+  ],
   alternates: {
-    canonical: "https://goodtally.app/pricing",
+    canonical: "/pricing",
+  },
+  openGraph: {
+    title: "Pricing — GoodTally",
+    description:
+      "Free forever for up to 10 volunteers. Paid plans from $49/year. Simple, transparent pricing for nonprofit volunteer management.",
+    url: "https://goodtally.app/pricing",
+    type: "website",
   },
 };
 
@@ -62,12 +74,73 @@ const FEATURES = [
   { key: "prioritySupport", label: "Priority support", icon: Headphones },
 ] as const;
 
+const FAQS = [
+  {
+    q: "What happens to my data if I cancel?",
+    a: "Your data is yours. If you cancel, you have 30 days to export everything via CSV before we remove it from our systems. We'll never hold your volunteer data hostage.",
+  },
+  {
+    q: "Can I upgrade or downgrade mid-year?",
+    a: "You can upgrade at any time and the new plan takes effect immediately. Downgrades take effect at the end of your current annual billing cycle — you keep your current features until then.",
+  },
+  {
+    q: "Do you offer nonprofit discounts?",
+    a: "At $49–$99/year we're already priced specifically for nonprofits. If your organization has a genuine financial hardship, reach out at support@goodtally.app and we'll work something out.",
+  },
+  {
+    q: "Can my volunteers use GoodTally too?",
+    a: "Currently GoodTally is a management tool used by staff and admins to track volunteers — volunteers don't need accounts. Volunteer self-service login portals are coming soon to the Growth plan.",
+  },
+  {
+    q: "How is billing handled?",
+    a: "All paid plans are billed annually via Stripe. You'll receive a receipt by email. We do not store your full credit card number. All fees are non-refundable per our Terms of Service.",
+  },
+];
+
+const pricingJsonLd = [
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: "https://goodtally.app",
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Pricing",
+        item: "https://goodtally.app/pricing",
+      },
+    ],
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: FAQS.map(({ q, a }) => ({
+      "@type": "Question",
+      name: q,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: a,
+      },
+    })),
+  },
+];
+
 export default async function PricingPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const isLoggedIn = !!user;
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+      {/* Structured data: BreadcrumbList + FAQPage */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingJsonLd) }}
+      />
       {/* Header */}
       <header className="border-b border-gray-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
@@ -89,7 +162,7 @@ export default async function PricingPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-16">
+      <main id="main-content" className="mx-auto max-w-6xl px-4 py-16">
         {/* Title */}
         <div className="mb-12 text-center">
           <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
@@ -360,28 +433,7 @@ export default async function PricingPage() {
             Common questions
           </h2>
           <div className="space-y-2">
-            {[
-              {
-                q: "What happens to my data if I cancel?",
-                a: "Your data is yours. If you cancel, you have 30 days to export everything via CSV before we remove it from our systems. We'll never hold your volunteer data hostage.",
-              },
-              {
-                q: "Can I upgrade or downgrade mid-year?",
-                a: "You can upgrade at any time and the new plan takes effect immediately. Downgrades take effect at the end of your current annual billing cycle — you keep your current features until then.",
-              },
-              {
-                q: "Do you offer nonprofit discounts?",
-                a: "At $49–$99/year we're already priced specifically for nonprofits. If your organization has a genuine financial hardship, reach out at support@goodtally.app and we'll work something out.",
-              },
-              {
-                q: "Can my volunteers use GoodTally too?",
-                a: "Currently GoodTally is a management tool used by staff and admins to track volunteers — volunteers don't need accounts. Volunteer self-service login portals are coming soon to the Growth plan.",
-              },
-              {
-                q: "How is billing handled?",
-                a: "All paid plans are billed annually via Stripe. You'll receive a receipt by email. We do not store your full credit card number. All fees are non-refundable per our Terms of Service.",
-              },
-            ].map(({ q, a }) => (
+            {FAQS.map(({ q, a }) => (
               <details
                 key={q}
                 className="group rounded-xl border border-gray-200 bg-white open:shadow-sm"

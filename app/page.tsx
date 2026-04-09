@@ -4,18 +4,26 @@ import { Users, Calendar, UsersRound, Clock, FileDown, Shield } from "lucide-rea
 import { LogoLink } from "@/components/ui/logo";
 
 export const metadata: Metadata = {
-  title: "GoodTally - Volunteer Management for Nonprofits",
+  // Use `absolute` so the "%s — GoodTally" template from the root layout
+  // does NOT wrap this title (which already contains the brand).
+  title: {
+    absolute: "GoodTally — Volunteer Management for Nonprofits",
+  },
   description:
     "Simple, affordable volunteer management for small nonprofits. Track volunteers, hours, events, and committees — all in one tool. Free forever for up to 10 volunteers.",
   keywords: [
-    "volunteer management",
-    "nonprofit software",
-    "volunteer tracking",
-    "volunteer hours",
-    "event management",
-    "committee management",
-    "small nonprofit tools",
+    "volunteer management software",
+    "nonprofit volunteer tracking",
+    "volunteer hours tracker",
+    "small nonprofit software",
+    "volunteer event management",
+    "committee management tool",
+    "church volunteer management",
+    "nonprofit CRM",
   ],
+  alternates: {
+    canonical: "/",
+  },
 };
 
 const features = [
@@ -109,6 +117,8 @@ export default function HomePage() {
         </div>
       </header>
 
+      {/* Main content — target of the skip-to-main-content link in layout.tsx */}
+      <main id="main-content">
       {/* Hero — split layout */}
       <section className="mx-auto max-w-6xl px-4 py-16 lg:py-20">
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:items-center">
@@ -309,6 +319,7 @@ export default function HomePage() {
           </p>
         </div>
       </section>
+      </main>
 
       {/* Footer */}
       <footer className="border-t border-gray-100 bg-white">

@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+/**
+ * System font stack — zero network cost, instant paint, best possible
+ * LCP/CLS for a content site. Used via Tailwind's default `font-sans`
+ * utility everywhere in the app.
+ */
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
 @keyframes slide-in-from-bottom-2 {
   from {
     opacity: 0;

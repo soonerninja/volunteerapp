@@ -4,17 +4,47 @@ import { Mail, MessageSquare, Building2 } from "lucide-react";
 import { LogoLink } from "@/components/ui/logo";
 
 export const metadata: Metadata = {
-  title: "Contact – GoodTally",
+  title: "Contact",
   description:
-    "Get help with GoodTally. Reach our support team or inquire about enterprise solutions.",
+    "Get in touch with the GoodTally team. Support for your nonprofit volunteer management questions, or inquire about enterprise and multi-chapter plans.",
   alternates: {
-    canonical: "https://goodtally.app/contact",
+    canonical: "/contact",
   },
+  openGraph: {
+    title: "Contact — GoodTally",
+    description:
+      "Get in touch with the GoodTally team for support or enterprise inquiries.",
+    url: "https://goodtally.app/contact",
+    type: "website",
+  },
+};
+
+const contactBreadcrumbJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    {
+      "@type": "ListItem",
+      position: 1,
+      name: "Home",
+      item: "https://goodtally.app",
+    },
+    {
+      "@type": "ListItem",
+      position: 2,
+      name: "Contact",
+      item: "https://goodtally.app/contact",
+    },
+  ],
 };
 
 export default function ContactPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(contactBreadcrumbJsonLd) }}
+      />
       {/* Header */}
       <header className="border-b border-gray-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
@@ -36,7 +66,7 @@ export default function ContactPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-4 py-20">
+      <main id="main-content" className="mx-auto max-w-3xl px-4 py-20">
         <div className="text-center mb-14">
           <h1 className="text-4xl font-bold tracking-tight text-gray-900">
             Get in Touch

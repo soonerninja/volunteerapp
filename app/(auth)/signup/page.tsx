@@ -43,6 +43,11 @@ export default function SignupPage() {
 
     setLoading(true);
 
+    // Prefer NEXT_PUBLIC_SITE_URL so the confirmation link always points to
+    // the canonical domain, regardless of where the user loaded this page.
+    const origin =
+      process.env.NEXT_PUBLIC_SITE_URL ?? window.location.origin;
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -50,7 +55,7 @@ export default function SignupPage() {
         data: {
           full_name: trimmedName,
         },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: `${origin}/auth/callback`,
       },
     });
 

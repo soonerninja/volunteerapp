@@ -2,15 +2,51 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Terms of Service – GoodTally",
+  title: "Terms of Service",
+  description:
+    "Read the GoodTally Terms of Service covering your use of our volunteer management software, account responsibilities, billing, and data ownership.",
   alternates: {
-    canonical: "https://goodtally.app/terms",
+    canonical: "/terms",
   },
+  openGraph: {
+    title: "Terms of Service — GoodTally",
+    description:
+      "The terms governing your use of the GoodTally volunteer management platform.",
+    url: "https://goodtally.app/terms",
+    type: "website",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+};
+
+const termsBreadcrumbJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    {
+      "@type": "ListItem",
+      position: 1,
+      name: "Home",
+      item: "https://goodtally.app",
+    },
+    {
+      "@type": "ListItem",
+      position: 2,
+      name: "Terms of Service",
+      item: "https://goodtally.app/terms",
+    },
+  ],
 };
 
 export default function TermsOfServicePage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(termsBreadcrumbJsonLd) }}
+      />
       {/* Nav */}
       <header className="border-b border-gray-100 bg-white/80 backdrop-blur-sm">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
@@ -26,7 +62,7 @@ export default function TermsOfServicePage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-4 py-16">
+      <main id="main-content" className="mx-auto max-w-3xl px-4 py-16">
         <div className="rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
           <h1 className="text-2xl font-bold text-gray-900">
             GoodTally &mdash; Terms of Service
