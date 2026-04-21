@@ -50,10 +50,20 @@ export async function POST(req: NextRequest) {
   const priceId = getPriceIdForTier(tier);
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
+  // Early-adopter coupons are per-tier because Starter ($99 → $49) and
+  // Growth ($199 → $99) need different dollar amounts off. Falls back to
+  // the single legacy STRIPE_COUPON_EARLY_ADOPTER env var if set.
+  const couponId =
+    tier === "starter"
+      ? process.env.STRIPE_COUPON_EARLY_ADOPTER_STARTER ??
+        process.env.STRIPE_COUPON_EARLY_ADOPTER
+      : process.env.STRIPE_COUPON_EARLY_ADOPTER_GROWTH ??
+        process.env.STRIPE_COUPON_EARLY_ADOPTER;
+
   const baseParams = {
     mode: "subscription" as const,
     line_items: [{ price: priceId, quantity: 1 }],
-    discounts: [{ coupon: process.env.STRIPE_COUPON_EARLY_ADOPTER! }],
+    ...(couponId ? { discounts: [{ coupon: couponId }] } : {}),
     success_url: `${siteUrl}/api/stripe/checkout-success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${siteUrl}/settings/billing?canceled=1`,
     metadata: { org_id: profile.org_id },

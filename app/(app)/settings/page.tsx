@@ -20,6 +20,7 @@ import {
   Mail,
   Clock,
   Trash2,
+  Send,
   Database,
   AlertTriangle,
   MapPin,
@@ -371,12 +372,16 @@ export default function SettingsPage() {
     setInviteError("");
     setInviteSuccess("");
 
-    const { error } = await supabase.from("team_invites").insert({
-      org_id: orgId,
-      email,
-      role: inviteRole,
-      invited_by: profile.id,
-    });
+    const { data: newInvite, error } = await supabase
+      .from("team_invites")
+      .insert({
+        org_id: orgId,
+        email,
+        role: inviteRole,
+        invited_by: profile.id,
+      })
+      .select()
+      .single();
 
     if (error) {
       setInviteError(
@@ -388,24 +393,74 @@ export default function SettingsPage() {
       return;
     }
 
+    // Immediately show the new invite in the list. If the DB returned the
+    // row (it should via INSERT … RETURNING), use it; otherwise build a
+    // synthetic record so the UI is never blank.
+    const optimisticInvite: TeamInvite = newInvite ?? {
+      id: `temp-${Date.now()}`,
+      org_id: orgId,
+      email,
+      role: inviteRole as TeamInvite["role"],
+      invited_by: profile.id,
+      status: "pending",
+      created_at: new Date().toISOString(),
+    };
+    setInvites((prev) => [optimisticInvite, ...prev.filter((i) => i.email !== email)]);
+
     await supabase.from("audit_log").insert({
       org_id: orgId,
       user_id: profile.id,
       action: "team.invited",
       entity_type: "team_invite",
-      entity_id: null,
+      entity_id: newInvite?.id ?? null,
       metadata: { email, role: inviteRole },
     });
+
+    // Fire the invite email (best-effort; row is already persisted).
+    try {
+      const res = await fetch("/api/invites/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) {
+        const { error: sendErr } = await res.json().catch(() => ({ error: "" }));
+        console.warn("[invite] email send failed:", sendErr);
+      }
+    } catch (err) {
+      console.warn("[invite] email send threw:", err);
+    }
 
     setInviteEmail("");
     setInviteRole("editor");
     setInviteSuccess(
-      `Invite sent to ${email}. They'll join your org when they sign up.`
+      `Invite sent to ${email}. They'll receive an email with a link to join.`
     );
     setInviteLoading(false);
+    // Refresh from DB to get authoritative data (replaces the optimistic entry).
     fetchInvites();
     setTimeout(() => setInviteSuccess(""), 5000);
     inviteEmailRef.current?.focus();
+  };
+
+  const resendInvite = async (invite: TeamInvite) => {
+    setInviteError("");
+    try {
+      const res = await fetch("/api/invites/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: invite.email }),
+      });
+      if (!res.ok) {
+        const { error: sendErr } = await res.json().catch(() => ({ error: "" }));
+        setInviteError(sendErr || "Failed to resend invite.");
+        return;
+      }
+      setInviteSuccess(`Invite resent to ${invite.email}.`);
+      setTimeout(() => setInviteSuccess(""), 4000);
+    } catch {
+      setInviteError("Failed to resend invite.");
+    }
   };
 
   const revokeInvite = async (invite: TeamInvite) => {
@@ -1071,13 +1126,23 @@ export default function SettingsPage() {
                         </p>
                       </div>
                     </div>
-                    <button
-                      onClick={() => revokeInvite(invite)}
-                      className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"
-                      aria-label={`Revoke invite for ${invite.email}`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => resendInvite(invite)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200"
+                        aria-label={`Resend invite for ${invite.email}`}
+                      >
+                        <Send className="h-3.5 w-3.5" />
+                        Resend
+                      </button>
+                      <button
+                        onClick={() => revokeInvite(invite)}
+                        className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                        aria-label={`Revoke invite for ${invite.email}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

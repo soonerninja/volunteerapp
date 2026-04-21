@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ListSkeleton } from "@/components/ui/list-skeleton";
 import { PlanLimitBadge, UpgradePrompt } from "@/components/ui/upgrade-prompt";
 import { formatDate } from "@/utils/format";
 import type { Event } from "@/types/database";
@@ -346,9 +347,7 @@ export default function EventsPage() {
 
       {/* Event List */}
       {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" role="status" aria-label="Loading events" />
-        </div>
+        <ListSkeleton rows={5} label="Loading events" />
       ) : events.length === 0 ? (
         <EmptyState
           icon={Calendar}

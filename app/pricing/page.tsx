@@ -73,6 +73,12 @@ export default async function PricingPage() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
           <LogoLink />
           <div className="flex items-center gap-4">
+            <Link href="/compare" className="hidden sm:inline text-sm font-medium text-gray-600 hover:text-gray-900">
+              Compare
+            </Link>
+            <Link href="/blog" className="hidden sm:inline text-sm font-medium text-gray-600 hover:text-gray-900">
+              Blog
+            </Link>
             <Link
               href="/login"
               className="text-sm font-medium text-gray-600 hover:text-gray-900"
@@ -83,7 +89,7 @@ export default async function PricingPage() {
               href="/signup"
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
             >
-              Get Started
+              Get Started Free
             </Link>
           </div>
         </div>
@@ -426,16 +432,13 @@ export default async function PricingPage() {
         <div className="mx-auto max-w-6xl px-4 py-6 text-xs text-gray-400">
           <div className="flex items-center justify-between">
             <span>GoodTally&trade;</span>
-            <div className="flex gap-4">
-              <Link href="/contact" className="hover:text-gray-600">
-                Contact
-              </Link>
-              <Link href="/terms" className="hover:text-gray-600">
-                Terms of Service
-              </Link>
-              <Link href="/privacy" className="hover:text-gray-600">
-                Privacy Policy
-              </Link>
+            <div className="flex flex-wrap gap-4">
+              <Link href="/compare" className="hover:text-gray-600">Compare</Link>
+              <Link href="/blog" className="hover:text-gray-600">Blog</Link>
+              <Link href="/contact" className="hover:text-gray-600">Contact</Link>
+              <Link href="/terms" className="hover:text-gray-600">Terms of Service</Link>
+              <Link href="/privacy" className="hover:text-gray-600">Privacy Policy</Link>
+              <Link href="/login" className="hover:text-gray-600">Sign In</Link>
             </div>
           </div>
           <p className="mt-3 text-center text-gray-300">

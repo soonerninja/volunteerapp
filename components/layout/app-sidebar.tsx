@@ -13,6 +13,7 @@ import {
   FileDown,
   X,
   MessageSquare,
+  Lightbulb,
 } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { Logo } from "@/components/ui/logo";
@@ -23,6 +24,7 @@ const navigation = [
   { name: "Events", href: "/events", icon: Calendar },
   { name: "Committees", href: "/committees", icon: UsersRound },
   { name: "Exports", href: "/exports", icon: FileDown },
+  { name: "Feedback", href: "/feedback", icon: Lightbulb },
   { name: "Settings", href: "/settings", icon: Settings },
   { name: "Account", href: "/settings/account", icon: UserCog },
   { name: "Plan & Billing", href: "/settings/billing", icon: CreditCard },
@@ -76,10 +78,10 @@ export function AppSidebar({ open, onClose }: AppSidebarProps) {
                 href={item.href}
                 onClick={onClose}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
                   isActive
-                    ? "bg-blue-50 text-blue-700"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                    ? "bg-blue-50 text-blue-700 font-semibold"
+                    : "font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                 )}
               >
                 <item.icon
